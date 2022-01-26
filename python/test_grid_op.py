@@ -40,14 +40,10 @@ def test_grid_op():
     gm = np.ones((res + 1, res + 1, res + 1, 1))
 
     grid_op(res, 1 / res, 1e-4, -200, gv, gm)
-    print(gv[gv.nonzero()])
-    print(gm[gm.nonzero()])
 
-    gv = np.zeros((res + 1, res + 1, res + 1, 3))
-    gm = np.ones((res + 1, res + 1, res + 1, 1))
-    ggv, ggm = nclr_grid_op(res, 3, 1 / res, 1e-4, -200, gv, gm)
-    print(ggv[ggv.nonzero()])
-    print(ggm[ggm.nonzero()])
+    ggv = np.zeros((res + 1, res + 1, res + 1, 3), dtype=np.float64)
+    ggm = np.ones((res + 1, res + 1, res + 1, 1), dtype=np.float64)
+    nclr_grid_op(res, 3.0, 1 / res, 1e-4, -200.0, ggv, ggm)
 
     assert np.isclose(gv[gv.nonzero()], ggv[ggv.nonzero()]).all()
     assert np.isclose(gm[gm.nonzero()], ggm[ggm.nonzero()]).all()
