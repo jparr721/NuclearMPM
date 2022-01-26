@@ -107,14 +107,14 @@ fn p2g(
     volume: f64,
     grid_velocity: &mut Array4<f64>,
     grid_mass: &mut Array4<f64>,
-    x: Array2<f64>,
-    v: Array2<f64>,
-    f: Array3<f64>,
-    c: Array3<f64>,
-    jp: Array1<f64>,
+    x: &Array2<f64>,
+    v: &Array2<f64>,
+    f: &Array3<f64>,
+    c: &Array3<f64>,
+    jp: &Array2<f64>,
     model: usize,
 ) {
-    for p in 0..x.nrows() {
+    (0..x.nrows()).into_par_iter().for_each(|p| {
         let bc = x.index_axis(Axis(0), p).to_owned() * inv_dx - 0.5;
         let fx = (x.index_axis(Axis(0), p).to_owned() * inv_dx) - &bc;
         let base_coord = bc.mapv(|e| e as usize);
@@ -125,7 +125,7 @@ fn p2g(
         let (mu, lambda) = if model == 1 {
             constant_hardening(mu_0, lambda_0, hardening)
         } else {
-            snow_hardening(mu_0, lambda_0, hardening, jp[p])
+            snow_hardening(mu_0, lambda_0, hardening, jp.index_axis(Axis(0), p)[0])
         };
 
         let affine = fixed_corotated_stress(
@@ -161,7 +161,7 @@ fn p2g(
                 }
             }
         }
-    }
+    });
 }
 
 #[pyfunction]
@@ -181,7 +181,7 @@ pub fn nclr_p2g<'py>(
     v: PyReadonlyArray2<f64>,
     f: PyReadonlyArray3<f64>,
     c: PyReadonlyArray3<f64>,
-    jp: PyReadonlyArray1<f64>,
+    jp: PyReadonlyArray2<f64>,
     model: usize,
 ) -> PyResult<(&'py PyArray4<f64>, &'py PyArray4<f64>)> {
     let mut vel = grid_velocity.as_array().to_owned();
@@ -197,11 +197,11 @@ pub fn nclr_p2g<'py>(
         volume,
         &mut vel,
         &mut m,
-        x.as_array().to_owned(),
-        v.as_array().to_owned(),
-        f.as_array().to_owned(),
-        c.as_array().to_owned(),
-        jp.as_array().to_owned(),
+        &x.as_array().to_owned(),
+        &v.as_array().to_owned(),
+        &f.as_array().to_owned(),
+        &c.as_array().to_owned(),
+        &jp.as_array().to_owned(),
         model,
     );
 
@@ -265,5 +265,6 @@ fn nuclear_mpm(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(nclr_polar, m)?)?;
     m.add_function(wrap_pyfunction!(nclr_stress, m)?)?;
     m.add_function(wrap_pyfunction!(nclr_grid_op, m)?)?;
+    m.add_function(wrap_pyfunction!(nclr_p2g, m)?)?;
     Ok(())
 }
