@@ -5,7 +5,10 @@ use ndarray::parallel::prelude::*;
 use ndarray_linalg::solve::Determinant;
 use num::clamp;
 use numpy::ndarray::{Array1, Array2, Array3, Array4, Axis};
-use numpy::{IntoPyArray, PyArray2, PyArray4, PyReadonlyArray2, PyReadonlyArray4};
+use numpy::{
+    IntoPyArray, PyArray2, PyArray4, PyReadonlyArray1, PyReadonlyArray2, PyReadonlyArray3,
+    PyReadonlyArray4,
+};
 use pyo3::prelude::*;
 use pyo3::{pymodule, types::PyModule, PyResult, Python};
 
@@ -102,8 +105,8 @@ fn p2g(
     dx: f64,
     dt: f64,
     volume: f64,
-    grid_velocity: &mut Array3<f64>,
-    grid_mass: &mut Array3<f64>,
+    grid_velocity: &mut Array4<f64>,
+    grid_mass: &mut Array4<f64>,
     x: Array2<f64>,
     v: Array2<f64>,
     f: Array3<f64>,
@@ -111,23 +114,98 @@ fn p2g(
     jp: Array1<f64>,
     model: usize,
 ) {
-    x.axis_iter(Axis(0))
-        .into_par_iter()
-        .enumerate()
-        .for_each(|(p, pos)| {
-            let base_coord = pos.to_owned() * inv_dx - 0.5;
-            let fx = (pos.to_owned() * inv_dx) - &base_coord;
-            let base_coordi = base_coord.mapv(|e| e as i64);
-            let w_i = (1.5 - &fx).mapv(|v| v.powi(2)) * 0.5;
-            let w_j = (&fx - 1.0).mapv(|v| v.powi(2)) - 0.75;
-            let w_k = (&fx - 0.5).mapv(|v| v.powi(2)) * 0.5;
+    for p in 0..x.nrows() {
+        let bc = x.index_axis(Axis(0), p).to_owned() * inv_dx - 0.5;
+        let fx = (x.index_axis(Axis(0), p).to_owned() * inv_dx) - &bc;
+        let base_coord = bc.mapv(|e| e as usize);
+        let w_i = (1.5 - &fx).mapv(|v| v.powi(2)) * 0.5;
+        let w_j = (&fx - 1.0).mapv(|v| v.powi(2)) - 0.75;
+        let w_k = (&fx - 0.5).mapv(|v| v.powi(2)) * 0.5;
 
-            let (mu, lambda) = if model == 1 {
-                constant_hardening(mu_0, lambda_0, hardening)
-            } else {
-                snow_hardening(mu_0, lambda_0, hardening, jp[p])
-            };
-        });
+        let (mu, lambda) = if model == 1 {
+            constant_hardening(mu_0, lambda_0, hardening)
+        } else {
+            snow_hardening(mu_0, lambda_0, hardening, jp[p])
+        };
+
+        let affine = fixed_corotated_stress(
+            &f.index_axis(Axis(0), p).to_owned(),
+            inv_dx,
+            mu,
+            lambda,
+            dt,
+            volume,
+            mass,
+            &c.index_axis(Axis(0), p).to_owned(),
+        );
+
+        for i in 0..3 {
+            for j in 0..3 {
+                for k in 0..3 {
+                    let dpos = (Array1::from_vec(vec![i as f64, j as f64, k as f64])
+                        - &x.index_axis(Axis(0), p))
+                        * dx;
+                    let mv = &v.index_axis(Axis(0), p) * mass;
+                    let weight = w_i[0] * w_j[1] * w_k[2];
+
+                    let nv = weight * (mv + affine.dot(&dpos));
+                    grid_velocity[[base_coord[0] + i, base_coord[1] + j, base_coord[2] + k, 0]] +=
+                        nv[0];
+                    grid_velocity[[base_coord[0] + i, base_coord[1] + j, base_coord[2] + k, 1]] +=
+                        nv[1];
+                    grid_velocity[[base_coord[0] + i, base_coord[1] + j, base_coord[2] + k, 2]] +=
+                        nv[2];
+
+                    grid_mass[[base_coord[0] + i, base_coord[1] + j, base_coord[2] + k, 0]] +=
+                        weight * mass;
+                }
+            }
+        }
+    }
+}
+
+#[pyfunction]
+pub fn nclr_p2g<'py>(
+    py: Python<'py>,
+    inv_dx: f64,
+    hardening: f64,
+    mu_0: f64,
+    lambda_0: f64,
+    mass: f64,
+    dx: f64,
+    dt: f64,
+    volume: f64,
+    grid_velocity: PyReadonlyArray4<f64>,
+    grid_mass: PyReadonlyArray4<f64>,
+    x: PyReadonlyArray2<f64>,
+    v: PyReadonlyArray2<f64>,
+    f: PyReadonlyArray3<f64>,
+    c: PyReadonlyArray3<f64>,
+    jp: PyReadonlyArray1<f64>,
+    model: usize,
+) -> PyResult<(&'py PyArray4<f64>, &'py PyArray4<f64>)> {
+    let mut vel = grid_velocity.as_array().to_owned();
+    let mut m = grid_mass.as_array().to_owned();
+    p2g(
+        inv_dx,
+        hardening,
+        mu_0,
+        lambda_0,
+        mass,
+        dx,
+        dt,
+        volume,
+        &mut vel,
+        &mut m,
+        x.as_array().to_owned(),
+        v.as_array().to_owned(),
+        f.as_array().to_owned(),
+        c.as_array().to_owned(),
+        jp.as_array().to_owned(),
+        model,
+    );
+
+    Ok((vel.into_pyarray(py), m.into_pyarray(py)))
 }
 
 #[pyfunction]
