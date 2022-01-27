@@ -1,5 +1,6 @@
 import numpy as np
-from nuclear_mpm import nclr_polar, nclr_stress
+from nuclear_mpm import nclr_fixed_corotated_stress
+from scipy.linalg import polar
 
 
 def check(
@@ -14,7 +15,7 @@ def check(
 ):
     J = np.linalg.det(F)
 
-    r, _ = nclr_polar(F)
+    r, _ = polar(F)
 
     D_inv = 4 * inv_dx * inv_dx
 
@@ -28,13 +29,13 @@ def test_stress_1000():
         f = np.random.rand(3, 3)
         c = np.random.rand(3, 3)
         inv_dx = 1 / 64
-        mu = 20
-        lambda_ = 30
+        mu = 20.0
+        lambda_ = 30.0
         dt = 1e-4
-        volume = 1
-        mass = 1
+        volume = 1.0
+        mass = 1.0
 
         assert np.isclose(
             check(f, inv_dx, mu, lambda_, dt, volume, mass, c),
-            nclr_stress(f, inv_dx, mu, lambda_, dt, volume, mass, c),
+            nclr_fixed_corotated_stress(f, inv_dx, mu, lambda_, dt, volume, mass, c),
         ).all()
