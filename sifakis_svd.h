@@ -1,4 +1,5 @@
 #include <Eigen/Dense>
+#include <Eigen/SVD>
 #include <algorithm>
 #include <cmath>
 
@@ -1150,66 +1151,9 @@ inline void nclr_svd_raw(const float a11, const float a12, const float a13, cons
     // output
 }
 
-template<int sweeps = 4>
-inline auto nclr_svd(const Eigen::Matrix3d &a, Eigen::Matrix3d &U, Eigen::Matrix3d &sig, Eigen::Matrix3d &V) -> void {
-    const float a11 = a(0, 0);
-    const float a12 = a(0, 1);
-    const float a13 = a(0, 2);
-    const float a21 = a(1, 0);
-    const float a22 = a(1, 1);
-    const float a23 = a(1, 2);
-    const float a31 = a(2, 0);
-    const float a32 = a(2, 1);
-    const float a33 = a(2, 2);
-
-    float u11;
-    float u12;
-    float u13;
-    float u21;
-    float u22;
-    float u23;
-    float u31;
-    float u32;
-    float u33;
-
-    float v11;
-    float v12;
-    float v13;
-    float v21;
-    float v22;
-    float v23;
-    float v31;
-    float v32;
-    float v33;
-
-    float sigma1;
-    float sigma2;
-    float sigma3;
-
-    nclr_svd_raw<sweeps>(a11, a12, a13, a21, a22, a23, a31, a32, a33, u11, u12, u13, u21, u22, u23, u31, u32, u33, v11,
-                         v12, v13, v21, v22, v23, v31, v32, v33, sigma1, sigma2, sigma3);
-
-    U(0, 0) = u11;
-    U(0, 1) = u12;
-    U(0, 2) = u13;
-    U(1, 0) = u21;
-    U(1, 1) = u22;
-    U(1, 2) = u23;
-    U(2, 0) = u31;
-    U(2, 1) = u32;
-    U(2, 2) = u33;
-
-    sig(0, 0) = sigma1;
-    sig(1, 1) = sigma2;
-    sig(2, 2) = sigma2;
-
-    V(0, 0) = v11;
-    V(0, 1) = v12;
-    V(0, 2) = v13;
-    V(1, 0) = v21;
-    V(1, 1) = v22;
-    V(1, 2) = v23;
-    V(2, 0) = v31;
-    V(2, 1) = v32;
-    V(2, 2) = v33;
+inline auto nclr_svd(const Eigen::Matrix3d &a, Eigen::Matrix3d &U, Eigen::Vector3d &sig, Eigen::Matrix3d &V) -> void {
+    const auto svd = Eigen::JacobiSVD<Eigen::Matrix3d>(a, Eigen::ComputeFullU | Eigen::ComputeFullV);
+    U = svd.matrixU();
+    V = svd.matrixV();
+    sig = svd.singularValues();
 }

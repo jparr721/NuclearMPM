@@ -1,5 +1,4 @@
 #include "sifakis_svd.h"
-#include <Eigen/SVD>
 #include <iostream>
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
@@ -38,18 +37,12 @@ inline auto oob(const Eigen::Vector3i base, const int res, const Eigen::Vector3i
 }
 
 inline auto nclr_polar(const Eigen::Matrix3d &m) -> std::pair<Eigen::Matrix3d, Eigen::Matrix3d> {
-    const auto svd = Eigen::JacobiSVD<Eigen::Matrix3d>(m, Eigen::ComputeFullU | Eigen::ComputeFullV);
-    const Eigen::Matrix3d U = svd.matrixU();
-    const Eigen::Matrix3d V = svd.matrixV();
-    const Eigen::Vector3d _sig = svd.singularValues();
-
-    Eigen::Matrix3d sig;
-    sig(0, 0) = _sig(0);
-    sig(1, 1) = _sig(1);
-    sig(2, 2) = _sig(2);
+    Eigen::Vector3d sig;
+    Eigen::Matrix3d U, V;
+    nclr_svd(m, U, sig, V);
 
     const Eigen::Matrix3d R = U * V.transpose();
-    const Eigen::Matrix3d S = V * sig * V.transpose();
+    const Eigen::Matrix3d S = (V.transpose().array() * sig.replicate(1, 3).transpose().array()).matrix() * V;
 
     return std::make_pair(R, S);
 }
@@ -67,14 +60,14 @@ auto nclr_fixed_corotated_stress(const Eigen::Matrix3d &F, const double inv_dx, 
         -> Eigen::MatrixXd;
 
 // MPM Operations
-auto nclr_p2g(const double inv_dx, const double hardening, const double mu_0, const double lambda_0, const double mass,
-              const double dx, const double dt, const double volume, Eigen::Tensor<double, 4> &grid_velocity,
-              Eigen::Tensor<double, 4> &grid_mass, std::vector<Eigen::Vector3d> &x, std::vector<Eigen::Vector3d> &v,
-              std::vector<Eigen::Matrix3d> &F, std::vector<Eigen::Matrix3d> &C, std::vector<double> &Jp,
-              MaterialModel model) -> void;
-auto nclr_grid_op(const int grid_resolution, const double dx, const double dt, const double gravity,
-                  Eigen::Tensor<double, 4> &grid_velocity, Eigen::Tensor<double, 4> &grid_mass) -> void;
-auto nclr_g2p(const double inv_dx, const double dt, Eigen::Tensor<double, 4> &grid_velocity,
+auto nclr_p2g(const int res, const double inv_dx, const double hardening, const double mu_0, const double lambda_0,
+              const double mass, const double dx, const double dt, const double volume,
+              std::vector<Eigen::Vector3d> &grid_velocity, std::vector<double> &grid_mass,
+              std::vector<Eigen::Vector3d> &x, std::vector<Eigen::Vector3d> &v, std::vector<Eigen::Matrix3d> &F,
+              std::vector<Eigen::Matrix3d> &C, std::vector<double> &Jp, MaterialModel model) -> void;
+auto nclr_grid_op(const int res, const double dx, const double dt, const double gravity,
+                  const std::vector<double> &grid_mass, std::vector<Eigen::Vector3d> &grid_velocity) -> void;
+auto nclr_g2p(const int res, const double inv_dx, const double dt, const std::vector<Eigen::Vector3d> &grid_velocity,
               std::vector<Eigen::Vector3d> &x, std::vector<Eigen::Vector3d> &v, std::vector<Eigen::Matrix3d> &F,
               std::vector<Eigen::Matrix3d> &C, std::vector<double> &Jp, MaterialModel model) -> void;
 auto nclr_mpm(const double inv_dx, const double hardening, const double mu_0, const double lambda_0, const double mass,

@@ -13,12 +13,10 @@ def polar(m: np.ndarray):
     Returns:
         Decomposed 3x3 matrices `U` and `P`.
     """
-    w, s, vh = np.linalg.svd(m, full_matrices=False)
+    u, sig, v = np.linalg.svd(m, full_matrices=False)
+    sig = np.eye(3) * sig
 
-    u = w.dot(vh)
-    # a = up
-    p = (vh.T.conj() * s).dot(vh)
-    return u, p
+    return u @ v.T, v @ sig @ v.T
 
 
 def test_polar_decomp_1000():
