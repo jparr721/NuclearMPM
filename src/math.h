@@ -81,3 +81,20 @@ inline auto randvec() -> Vector<real> {
 
     return ret;
 }
+
+inline auto nclr_svd(const Matrix<real> &a, Matrix<real> &U, Matrix<real> &sig, Matrix<real> &V) -> void {
+    const auto svd = Eigen::JacobiSVD<Matrix<real>>(a, Eigen::ComputeFullU | Eigen::ComputeFullV);
+    U = svd.matrixU();
+    V = svd.matrixV();
+    const auto values = svd.singularValues();
+    for (int ii = 0; ii < values.rows(); ++ii) { sig(ii, ii) = values(ii); }
+}
+
+inline auto nclr_polar(const Matrix<real> &m, Matrix<real> &R, Matrix<real> &S) -> void {
+    Matrix<real> sig;
+    Matrix<real> U, V;
+    nclr_svd(m, U, sig, V);
+
+    R = U * V.transpose();
+    S = V * sig * V.transpose();
+}

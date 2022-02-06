@@ -46,25 +46,6 @@ inline auto oob(const Vector<int> base, const int res, const Vector<int> ijk = V
     return false;
 }
 
-inline auto nclr_svd(const Matrix<real> &a, Matrix<real> &U, Matrix<real> &sig, Matrix<real> &V) -> void {
-    const auto svd = Eigen::JacobiSVD<Matrix<real>>(a, Eigen::ComputeFullU | Eigen::ComputeFullV);
-    U = svd.matrixU();
-    V = svd.matrixV();
-    const auto values = svd.singularValues();
-    sig(0, 0) = values(0);
-    sig(1, 1) = values(1);
-    sig(2, 2) = values(2);
-}
-
-inline auto nclr_polar(const Matrix<real> &m, Matrix<real> &R, Matrix<real> &S) -> void {
-    Matrix<real> sig;
-    Matrix<real> U, V;
-    nclr_svd(m, U, sig, V);
-
-    R = U * V.transpose();
-    S = V * sig * V.transpose();
-}
-
 // Hardening coefficients
 auto nclr_constant_hardening(const double mu, const double lambda, const double e) -> std::pair<double, double>;
 auto nclr_snow_hardening(const double mu, const double lambda, const double h, const double Jp)

@@ -297,7 +297,8 @@ void advance(real dt) {
 
         // Polar decomposition for fixed corotated model
         Matrix<real> r, s;
-        polar_decomp(p.F, r, s);
+        nclr_polar(p.F, r, s);
+        /* polar_decomp(p.F, r, s); */
 
         // [http://mpm.graphics Paragraph after Eqn. 176]
         const real Dinv = 4 * inv_dx * inv_dx;
