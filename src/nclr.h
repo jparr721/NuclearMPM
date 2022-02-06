@@ -1,3 +1,4 @@
+#include "math.h"
 #include <Eigen/Dense>
 #include <Eigen/SVD>
 #include <iostream>
@@ -5,10 +6,26 @@
 #include <utility>
 #include <vector>
 
-inline auto diagonal(const double value) -> Eigen::Matrix3d {
-    const Eigen::Vector3d diagonal = Eigen::Vector3d::Constant(value);
-    return diagonal.array().matrix().asDiagonal();
-}
+struct Particle {
+    // Position and velocity
+    Vec x, v;
+    // Deformation gradient
+    Mat F;
+    // Affine momentum from APIC
+    Mat C;
+    // Determinant of the deformation gradient (i.e. volume)
+    nc_real Jp;
+    // Color
+    int c;
+
+    Particle(Vec x, int c, Vec v = constvec(0)) : x(x), v(v), F(diag(1)), C(constmat(0)), Jp(1), c(c) {}
+};
+
+struct Cell {
+    Vec velocity;
+    double mass;
+    Cell() : velocity(constvec(0)), mass(0.0) {}
+};
 
 inline auto vec_to_mat(const std::vector<Eigen::Vector3d> &data) -> Eigen::MatrixXd {
     Eigen::MatrixX3d mat;
@@ -48,12 +65,10 @@ inline auto nclr_polar(const Eigen::Matrix3d &m, Eigen::Matrix3d &R, Eigen::Matr
     S = V * sig * V.transpose();
 }
 
-inline auto sqr(const Eigen::Vector3d &a) -> Eigen::Vector3d { return a.array().square().matrix(); }
-
 // Hardening coefficients
-/* auto nclr_constant_hardening(const double mu, const double lambda, const double e) -> std::pair<double, double>; */
-/* auto nclr_snow_hardening(const double mu, const double lambda, const double h, const double Jp) */
-/*         -> std::pair<double, double>; */
+auto nclr_constant_hardening(const double mu, const double lambda, const double e) -> std::pair<double, double>;
+auto nclr_snow_hardening(const double mu, const double lambda, const double h, const double Jp)
+        -> std::pair<double, double>;
 
 /* // Cauchy stress */
 /* auto nclr_fixed_corotated_stress(const Eigen::Matrix3d &F, const double inv_dx, const double mu, const double lambda, */
@@ -66,8 +81,7 @@ inline auto sqr(const Eigen::Vector3d &a) -> Eigen::Vector3d { return a.array().
 /*               std::vector<Eigen::Vector3d> &grid_velocity, std::vector<double> &grid_mass, */
 /*               std::vector<Eigen::Vector3d> &x, std::vector<Eigen::Vector3d> &v, std::vector<Eigen::Matrix3d> &F, */
 /*               std::vector<Eigen::Matrix3d> &C, std::vector<double> &Jp) -> void; */
-/* auto nclr_grid_op(const int res, const double dx, const double dt, const double gravity, */
-/*                   const std::vector<double> &grid_mass, std::vector<Eigen::Vector3d> &grid_velocity) -> void; */
+auto nclr_grid_op(float gravity, std::vector<Cell> &cells) -> void;
 /* auto nclr_g2p(const int res, const double inv_dx, const double dt, const std::vector<Eigen::Vector3d> &grid_velocity, */
 /*               std::vector<Eigen::Vector3d> &x, std::vector<Eigen::Vector3d> &v, std::vector<Eigen::Matrix3d> &F, */
 /*               std::vector<Eigen::Matrix3d> &C, std::vector<double> &Jp) -> void; */

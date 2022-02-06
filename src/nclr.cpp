@@ -7,16 +7,20 @@
 /* #include <fstream> */
 
 /* namespace py = pybind11; */
+#include "nclr.h"
+#include "taichi.h"
+#include <Eigen/Dense>
+#include <cstdint>
 
-/* auto nclr_constant_hardening(const double mu, const double lambda, const double e) -> std::pair<double, double> { */
-/*     return std::make_pair(mu * e, lambda * e); */
-/* } */
+auto nclr_constant_hardening(const double mu, const double lambda, const double e) -> std::pair<double, double> {
+    return std::make_pair(mu * e, lambda * e);
+}
 
-/* auto nclr_snow_hardening(const double mu, const double lambda, const double h, const double jp) */
-/*         -> std::pair<double, double> { */
-/*     const double e = std::exp(h * (1.0 - jp)); */
-/*     return nclr_constant_hardening(mu, lambda, e); */
-/* } */
+auto nclr_snow_hardening(const double mu, const double lambda, const double h, const double jp)
+        -> std::pair<double, double> {
+    const double e = std::exp(h * (1.0 - jp));
+    return nclr_constant_hardening(mu, lambda, e);
+}
 
 
 /* // Cauchy stress */
@@ -137,38 +141,38 @@
 /*     } */
 /* } */
 
-/* auto nclr_grid_op(const int res, const double dx, const double dt, const double gravity, */
-/*                   const std::vector<double> &grid_mass, std::vector<Eigen::Vector3d> &grid_velocity) -> void { */
-/*     constexpr int boundary = 3; */
-/*     const double v_allowed = dx * 0.9 / dt; */
+auto nclr_grid_op(const int res, const double dx, const double dt, const double gravity,
+                  const std::vector<double> &grid_mass, std::vector<Eigen::Vector3d> &grid_velocity) -> void {
+    constexpr int boundary = 3;
+    const double v_allowed = dx * 0.9 / dt;
 
-/* #pragma omp parallel for collapse(3) */
-/*     for (int ii = 0; ii <= res; ++ii) { */
-/*         for (int jj = 0; jj <= res; ++jj) { */
-/*             for (int kk = 0; kk <= res; ++kk) { */
+#pragma omp parallel for collapse(3)
+    for (int ii = 0; ii <= res; ++ii) {
+        for (int jj = 0; jj <= res; ++jj) {
+            for (int kk = 0; kk <= res; ++kk) {
 
-/*                 // Grid normalization */
-/*                 const int index = ii * res + jj * res + kk; */
-/*                 if (grid_mass.at(index) > 0.0) { */
-/*                     grid_velocity.at(index) /= grid_mass[index]; */
+                // Grid normalization
+                const int index = ii * res + jj * res + kk;
+                if (grid_mass.at(index) > 0.0) {
+                    grid_velocity.at(index) /= grid_mass[index];
 
-/*                     grid_velocity.at(index)(1) += dt * gravity; */
-/*                     grid_velocity.at(index)(0) = std::clamp(grid_velocity.at(index)(0), -v_allowed, v_allowed); */
-/*                     grid_velocity.at(index)(1) = std::clamp(grid_velocity.at(index)(1), -v_allowed, v_allowed); */
-/*                     grid_velocity.at(index)(2) = std::clamp(grid_velocity.at(index)(2), -v_allowed, v_allowed); */
-/*                 } */
+                    grid_velocity.at(index)(1) += dt * gravity;
+                    grid_velocity.at(index)(0) = std::clamp(grid_velocity.at(index)(0), -v_allowed, v_allowed);
+                    grid_velocity.at(index)(1) = std::clamp(grid_velocity.at(index)(1), -v_allowed, v_allowed);
+                    grid_velocity.at(index)(2) = std::clamp(grid_velocity.at(index)(2), -v_allowed, v_allowed);
+                }
 
-/*                 // Boundary conditions */
-/*                 if (ii < boundary && grid_velocity.at(index)(0) < 0) { grid_velocity.at(index)(0) = 0; } */
-/*                 if (ii >= res - boundary && grid_velocity.at(index)(0) > 0) { grid_velocity.at(index)(0) = 0; } */
-/*                 if (jj < boundary && grid_velocity.at(index)(1) < 0) { grid_velocity.at(index)(1) = 0; } */
-/*                 if (jj >= res - boundary && grid_velocity.at(index)(1) > 0) { grid_velocity.at(index)(1) = 0; } */
-/*                 if (kk < boundary && grid_velocity.at(index)(2) < 0) { grid_velocity.at(index)(2) = 0; } */
-/*                 if (kk >= res - boundary && grid_velocity.at(index)(2) > 0) { grid_velocity.at(index)(2) = 0; } */
-/*             } */
-/*         } */
-/*     } */
-/* } */
+                // Boundary conditions
+                if (ii < boundary && grid_velocity.at(index)(0) < 0) { grid_velocity.at(index)(0) = 0; }
+                if (ii >= res - boundary && grid_velocity.at(index)(0) > 0) { grid_velocity.at(index)(0) = 0; }
+                if (jj < boundary && grid_velocity.at(index)(1) < 0) { grid_velocity.at(index)(1) = 0; }
+                if (jj >= res - boundary && grid_velocity.at(index)(1) > 0) { grid_velocity.at(index)(1) = 0; }
+                if (kk < boundary && grid_velocity.at(index)(2) < 0) { grid_velocity.at(index)(2) = 0; }
+                if (kk >= res - boundary && grid_velocity.at(index)(2) > 0) { grid_velocity.at(index)(2) = 0; }
+            }
+        }
+    }
+}
 
 /* auto nclr_mpm(const double inv_dx, const double hardening, const double mu_0, const double lambda_0, const double mass, */
 /*               const double dx, const double dt, const double volume, const unsigned int res, const double gravity, */
@@ -209,117 +213,65 @@
 /*     m.def("nclr_polar", &nclr_polar); */
 /* } */
 
-#include "taichi.h"
-#include <Eigen/Dense>
-
-using namespace taichi;
-using Vec = Eigen::Vector2f;
-using Mat = Eigen::Matrix2f;
-using nc_real = float;
 
 // Window
-const int window_size = 800;
+constexpr int window_size = 1200;
 
 // Grid resolution (cells)
 const int n = 80;
 
-const nc_real dt = 1e-4_f;
-const nc_real frame_dt = 1e-3_f;
-const nc_real dx = 1.0_f / n;
-const nc_real inv_dx = 1.0_f / dx;
+const nc_real dt = 1e-4f;
+const nc_real frame_dt = 1e-3f;
+const nc_real dx = 1.0f / n;
+const nc_real inv_dx = 1.0f / dx;
 
 // Snow material properties
-const auto particle_mass = 1.0_f;
-const auto vol = 1.0_f;       // Particle Volume
-const auto hardening = 10.0_f;// Snow hardening factor
-const auto E = 10000;         // Young's Modulus
-const auto nu = 0.2_f;        // Poisson ratio
+const auto particle_mass = 1.0f;
+const auto vol = 1.0f;      // Particle Volume
+const auto hardening = 0.7f;// Snow hardening factor
+const auto E = 1400;        // Young's Modulus
+const auto nu = 0.3f;       // Poisson ratio
 const bool plastic = true;
+const auto gravity = -90.8f;
 int step = 0;
-
-auto diag(const float value) -> Mat {
-    Mat m = Mat::Zero();
-    m(0, 0) = value;
-    m(1, 1) = value;
-    return m;
-}
-
-auto constmat(const float value) -> Mat { return Mat::Constant(value); }
-auto constvec(const float value) -> Vec { return Vec::Constant(value); }
 
 // Initial Lamé parameters
 const nc_real mu_0 = E / (2 * (1 + nu));
 const nc_real lambda_0 = E * nu / ((1 + nu) * (1 - 2 * nu));
 
-struct Particle {
-    // Position and velocity
-    Vec x, v;
-    // Deformation gradient
-    Mat F;
-    // Affine momentum from APIC
-    Mat C;
-    // Determinant of the deformation gradient (i.e. volume)
-    nc_real Jp;
-    // Color
-    int c;
-
-    Particle(Vec x, int c, Vec v = constvec(0)) : x(x), v(v), F(diag(1)), C(constmat(0)), Jp(1), c(c) {}
-};
-
-struct Cell {
-    Vec velocity;
-    double mass;
-    Cell() : velocity(constvec(0)), mass(0.0) {}
-};
-
 std::vector<Particle> particles;
 int nn = n + 1;
 
-auto polar_decomp(const Mat &m, Mat &R, Mat &S) -> void {
-    auto x = m(0, 0) + m(1, 1);
-    auto y = m(1, 0) - m(0, 1);
-    auto scale = 1.0_f / std::sqrt(x * x + y * y);
-    auto c = x * scale, s = y * scale;
-    R(0, 0) = c;
-    R(0, 1) = -s;
-    R(1, 0) = s;
-    R(1, 1) = c;
-    S = R.transpose() * m;
-}
+auto nclr_grid_op(const float gravity, std::vector<Cell> &grid) -> void {
+    for (int i = 0; i <= n; i++) {
+        for (int j = 0; j <= n; j++) {
+            const auto index = (i * nn) + j;
+            auto &g = grid[index];
+            // No need for epsilon here
+            if (g.mass > 0.0) {
+                // Normalize by mass
+                g.velocity /= g.mass;
+                // Gravity
+                g.velocity(1) += dt * gravity;
 
-auto svd(const Mat &m, Mat &U, Mat &sig, Mat &V) -> void {
-    Mat S;
-    polar_decomp(m, U, S);
-    nc_real c, s;
-    if (std::abs(S(0, 1)) < 1e-6_f) {
-        sig = S;
-        c = 1;
-        s = 0;
-    } else {
-        auto tao = 0.5_f * (S(0, 0) - S(1, 1));
-        auto w = std::sqrt(tao * tao + S(0, 1) * S(0, 1));
-        auto t = tao > 0 ? S(0, 1) / (tao + w) : S(0, 1) / (tao - w);
-        c = 1.0_f / std::sqrt(t * t + 1);
-        s = -t * c;
-        sig(0, 0) = pow<2>(c) * S(0, 0) - 2 * c * s * S(0, 1) + pow<2>(s) * S(1, 1);
-        sig(1, 1) = pow<2>(s) * S(0, 0) + 2 * c * s * S(0, 1) + pow<2>(c) * S(1, 1);
-    }
-    if (sig(0, 0) < sig(1, 1)) {
-        std::swap(sig(0, 0), sig(1, 1));
-        V(0, 0) = -s;
-        V(0, 1) = -c;
-        V(1, 0) = c;
-        V(1, 1) = -s;
-    } else {
-        V(0, 0) = c;
-        V(0, 1) = -s;
-        V(1, 0) = s;
-        V(1, 1) = c;
-    }
-    V.transposeInPlace();
-    U = U * V;
-}
+                // boundary thickness
+                const nc_real boundary = 0.05;
 
+                // Node coordinates
+                nc_real x = nc_real(i) / n;
+                nc_real y = nc_real(j) / n;
+
+                // Sticky boundary
+                if (x < boundary || x > 1 - boundary || y > 1 - boundary || y < boundary) {
+                    g.velocity = constvec(0);
+                    g.mass = 0.0;
+                }
+                // Separate boundary (needs friction)
+                /* if (y < boundary) { g.velocity[1] = std::max(0.0f, g.velocity[1]); } */
+            }
+        }
+    }
+}
 
 void advance(nc_real dt) {
     auto grid = std::vector<Cell>(nn * nn, Cell());
@@ -337,8 +289,8 @@ void advance(nc_real dt) {
                            constvec(0.5).cwiseProduct(Eigen::square((fx - constvec(0.5)).array()).matrix())};
 
         // Compute current Lamé parameters [http://mpm.graphics Eqn. 86]
-        const auto mu = mu_0 * 0.7;
-        const auto lambda = lambda_0 * 0.7;
+        const auto mu = mu_0 * hardening;
+        const auto lambda = lambda_0 * hardening;
 
         // Current volume
         const nc_real J = p.F.determinant();
@@ -375,35 +327,8 @@ void advance(nc_real dt) {
         }
     }
 
-    // For all grid nodes
-    for (int i = 0; i <= n; i++) {
-        for (int j = 0; j <= n; j++) {
-            const auto index = (i * nn) + j;
-            auto &g = grid[index];
-            // No need for epsilon here
-            if (g.mass > 0.0) {
-                // Normalize by mass
-                g.velocity /= g.mass;
-                // Gravity
-                g.velocity(1) += dt * -200;
+    nclr_grid_op(gravity, grid);
 
-                // boundary thickness
-                const nc_real boundary = 0.05;
-
-                // Node coordinates
-                nc_real x = nc_real(i) / n;
-                nc_real y = nc_real(j) / n;
-
-                // Sticky boundary
-                if (x < boundary || x > 1 - boundary || y > 1 - boundary || y < boundary) {
-                    g.velocity = constvec(0);
-                    g.mass = 0.0;
-                }
-                // Separate boundary (needs friction)
-                /* if (y < boundary) { g.velocity[1] = std::max(0.0f, g.velocity[1]); } */
-            }
-        }
-    }
     // G2P
     for (auto &p : particles) {
         // element-wise floor
@@ -442,36 +367,19 @@ void advance(nc_real dt) {
     }
 }
 
-auto nc_rand_int() -> int {
-    static unsigned int x = 123456789, y = 362436069, z = 521288629, w = 88675123;
-    unsigned int t = x ^ (x << 11);
-    x = y;
-    y = z;
-    z = w;
-    return (w = (w ^ (w >> 19)) ^ (t ^ (t >> 8)));
-}
-
-auto nc_rand() -> float { return rand_int() * (1.0_f / 4294967296.0f); }
-auto randvec() -> Vec {
-    Vec ret;
-    for (int i = 0; i < 2; ++i) { ret(i) = nc_rand(); }
-
-    return ret;
-}
-
 // Seed particles with position and color
 void add_object(const Vec &center, int c) {
     // Randomly sample 1000 particles in the square
     for (int i = 0; i < 1000; i++) {
-        particles.push_back(Particle((randvec() * 2.0_f - constvec(1)) * 0.08_f + center, c));
+        particles.push_back(Particle((randvec() * 2.0f - constvec(1)) * 0.08f + center, c));
     }
 }
 
 int main() {
-    GUI gui("Real-time 2D MLS-MPM", window_size, window_size);
+    taichi::GUI gui("Real-time 2D MLS-MPM", window_size, window_size);
     auto &canvas = gui.get_canvas();
 
-    /* add_object(Vec(0.55, 0.45), 0xED553B); */
+    add_object(Vec(0.35, 0.35), 0xED553B);
     add_object(Vec(0.55, 0.15), 0xED553B);
     add_object(Vec(0.55, 0.85), 0xED553B);
 
