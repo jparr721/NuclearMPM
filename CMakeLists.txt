@@ -1,18 +1,17 @@
 cmake_minimum_required(VERSION 3.4...3.18)
 project(nuclear_mpm)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-deprecated-enum-enum-conversion -O3")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-enum-enum-conversion -O3")
+set(CMAKE_BUILD_TYPE "RelWithDebInfo")
+# set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-deprecated-enum-enum-conversion -Ofast")
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-enum-enum-conversion -Ofast")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-deprecated-enum-enum-conversion")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-enum-enum-conversion")
 
 find_package(Eigen3 CONFIG REQUIRED)
-include_directories(${EIGEN3_INCLUDE_DIRS})
+find_package(X11 REQUIRED)
 
-add_subdirectory(pybind11)
-pybind11_add_module(${PROJECT_NAME} nclr.cpp)
+add_executable(${PROJECT_NAME} nclr.cpp)
 
-# EXAMPLE_VERSION_INFO is defined by setup.py and passed into the C++ code as a
-# define (VERSION_INFO) here.
-target_compile_definitions(${PROJECT_NAME}
-                           PRIVATE VERSION_INFO=${EXAMPLE_VERSION_INFO})
+target_link_libraries(${PROJECT_NAME} PRIVATE Eigen3::Eigen ${X11_LIBRARIES})
