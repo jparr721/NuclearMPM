@@ -211,7 +211,7 @@ namespace nclr {
             // Boundary Thickness
             constexpr int boundary = 3;
 
-            // #pragma omp parallel for collpase(dim)
+#pragma omp parallel for collpase(dim)
             for (auto ii = 0; ii <= res_; ++ii) {
                 for (auto jj = 0; jj <= res_; ++jj) {
                     if (dim == 3) {
