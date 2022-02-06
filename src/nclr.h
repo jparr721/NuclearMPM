@@ -8,37 +8,37 @@
 
 struct Particle {
     // Position and velocity
-    Vec x, v;
+    Vector<real> x, v;
     // Deformation gradient
-    Mat F;
+    Matrix<real> F;
     // Affine momentum from APIC
-    Mat C;
+    Matrix<real> C;
     // Determinant of the deformation gradient (i.e. volume)
-    nc_real Jp;
+    real Jp;
     // Color
     int c;
 
-    Particle(Vec x, int c, Vec v = constvec(0)) : x(x), v(v), F(diag(1)), C(constmat(0)), Jp(1), c(c) {}
+    Particle(Vector<real> x, int c, Vector<real> v = constvec(0))
+        : x(x), v(v), F(diag(1)), C(constmat(0)), Jp(1), c(c) {}
 };
 
 struct Cell {
-    Vec velocity;
+    Vector<real> velocity;
     double mass;
     Cell() : velocity(constvec(0)), mass(0.0) {}
 };
 
-inline auto vec_to_mat(const std::vector<Eigen::Vector3d> &data) -> Eigen::MatrixXd {
-    Eigen::MatrixX3d mat;
-    mat.resize(data.size(), 3);
-    for (int i = 0; i < data.size(); ++i) { mat.row(i) = data.at(i); }
-    return mat;
-}
+/* inline auto vec_to_mat(const std::vector<Eigen::Vector3d> &data) -> Eigen::MatrixXd { */
+/*     Eigen::MatrixX3d mat; */
+/*     mat.resize(data.size(), 3); */
+/*     for (int i = 0; i < data.size(); ++i) { mat.row(i) = data.at(i); } */
+/*     return mat; */
+/* } */
 
 // Utils
-inline auto oob(const Eigen::Vector3i base, const int res, const Eigen::Vector3i ijk = Eigen::Vector3i::Zero())
-        -> bool {
-    const Eigen::Vector3i bijk = base + ijk;
-    const Eigen::Vector3i comp = Eigen::Vector3i::Ones() * res;
+inline auto oob(const Vector<int> base, const int res, const Vector<int> ijk = Vector<int>::Zero()) -> bool {
+    const Vector<int> bijk = base + ijk;
+    const Vector<int> comp = Vector<int>::Ones() * res;
 
     for (int ii = 0; ii < 3; ++ii) {
         if (bijk(ii) >= comp(ii) || bijk(ii) < 0) { return true; }
@@ -46,8 +46,8 @@ inline auto oob(const Eigen::Vector3i base, const int res, const Eigen::Vector3i
     return false;
 }
 
-inline auto nclr_svd(const Eigen::Matrix3d &a, Eigen::Matrix3d &U, Eigen::Matrix3d &sig, Eigen::Matrix3d &V) -> void {
-    const auto svd = Eigen::JacobiSVD<Eigen::Matrix3d>(a, Eigen::ComputeFullU | Eigen::ComputeFullV);
+inline auto nclr_svd(const Matrix<real> &a, Matrix<real> &U, Matrix<real> &sig, Matrix<real> &V) -> void {
+    const auto svd = Eigen::JacobiSVD<Matrix<real>>(a, Eigen::ComputeFullU | Eigen::ComputeFullV);
     U = svd.matrixU();
     V = svd.matrixV();
     const auto values = svd.singularValues();
@@ -56,9 +56,9 @@ inline auto nclr_svd(const Eigen::Matrix3d &a, Eigen::Matrix3d &U, Eigen::Matrix
     sig(2, 2) = values(2);
 }
 
-inline auto nclr_polar(const Eigen::Matrix3d &m, Eigen::Matrix3d &R, Eigen::Matrix3d &S) -> void {
-    Eigen::Matrix3d sig;
-    Eigen::Matrix3d U, V;
+inline auto nclr_polar(const Matrix<real> &m, Matrix<real> &R, Matrix<real> &S) -> void {
+    Matrix<real> sig;
+    Matrix<real> U, V;
     nclr_svd(m, U, sig, V);
 
     R = U * V.transpose();
@@ -71,20 +71,20 @@ auto nclr_snow_hardening(const double mu, const double lambda, const double h, c
         -> std::pair<double, double>;
 
 /* // Cauchy stress */
-/* auto nclr_fixed_corotated_stress(const Eigen::Matrix3d &F, const double inv_dx, const double mu, const double lambda, */
-/*                                  const double dt, const double volume, const double mass, const Eigen::Matrix3d &C) */
+/* auto nclr_fixed_corotated_stress(const Matrix<real> &F, const double inv_dx, const double mu, const double lambda, */
+/*                                  const double dt, const double volume, const double mass, const Matrix<real> &C) */
 /*         -> Eigen::MatrixXd; */
 
 /* // MPM Operations */
 /* auto nclr_p2g(const int res, const double inv_dx, const double hardening, const double mu_0, const double lambda_0, */
 /*               const double mass, const double dx, const double dt, const double volume, */
 /*               std::vector<Eigen::Vector3d> &grid_velocity, std::vector<double> &grid_mass, */
-/*               std::vector<Eigen::Vector3d> &x, std::vector<Eigen::Vector3d> &v, std::vector<Eigen::Matrix3d> &F, */
-/*               std::vector<Eigen::Matrix3d> &C, std::vector<double> &Jp) -> void; */
+/*               std::vector<Eigen::Vector3d> &x, std::vector<Eigen::Vector3d> &v, std::vector<Matrix<real>> &F, */
+/*               std::vector<Matrix<real>> &C, std::vector<double> &Jp) -> void; */
 auto nclr_grid_op(float gravity, std::vector<Cell> &cells) -> void;
 /* auto nclr_g2p(const int res, const double inv_dx, const double dt, const std::vector<Eigen::Vector3d> &grid_velocity, */
-/*               std::vector<Eigen::Vector3d> &x, std::vector<Eigen::Vector3d> &v, std::vector<Eigen::Matrix3d> &F, */
-/*               std::vector<Eigen::Matrix3d> &C, std::vector<double> &Jp) -> void; */
+/*               std::vector<Eigen::Vector3d> &x, std::vector<Eigen::Vector3d> &v, std::vector<Matrix<real>> &F, */
+/*               std::vector<Matrix<real>> &C, std::vector<double> &Jp) -> void; */
 /* auto nclr_mpm(const double inv_dx, const double hardening, const double mu_0, const double lambda_0, const double mass, */
 /*               const double dx, const double dt, const double volume, const unsigned int res, const double gravity, */
 /*               const std::size_t timesteps, const Eigen::MatrixX3d &x) -> std::vector<Eigen::MatrixXd>; */

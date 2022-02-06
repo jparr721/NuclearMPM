@@ -220,10 +220,10 @@ constexpr int window_size = 1200;
 // Grid resolution (cells)
 const int n = 80;
 
-const nc_real dt = 1e-4f;
-const nc_real frame_dt = 1e-3f;
-const nc_real dx = 1.0f / n;
-const nc_real inv_dx = 1.0f / dx;
+const real dt = 1e-4f;
+const real frame_dt = 1e-3f;
+const real dx = 1.0f / n;
+const real inv_dx = 1.0f / dx;
 
 // Snow material properties
 const auto particle_mass = 1.0f;
@@ -236,8 +236,8 @@ const auto gravity = -90.8f;
 int step = 0;
 
 // Initial Lamé parameters
-const nc_real mu_0 = E / (2 * (1 + nu));
-const nc_real lambda_0 = E * nu / ((1 + nu) * (1 - 2 * nu));
+const real mu_0 = E / (2 * (1 + nu));
+const real lambda_0 = E * nu / ((1 + nu) * (1 - 2 * nu));
 
 std::vector<Particle> particles;
 int nn = n + 1;
@@ -255,11 +255,11 @@ auto nclr_grid_op(const float gravity, std::vector<Cell> &grid) -> void {
                 g.velocity(1) += dt * gravity;
 
                 // boundary thickness
-                const nc_real boundary = 0.05;
+                const real boundary = 0.05;
 
                 // Node coordinates
-                nc_real x = nc_real(i) / n;
-                nc_real y = nc_real(j) / n;
+                real x = real(i) / n;
+                real y = real(j) / n;
 
                 // Sticky boundary
                 if (x < boundary || x > 1 - boundary || y > 1 - boundary || y < boundary) {
@@ -273,7 +273,7 @@ auto nclr_grid_op(const float gravity, std::vector<Cell> &grid) -> void {
     }
 }
 
-void advance(nc_real dt) {
+void advance(real dt) {
     auto grid = std::vector<Cell>(nn * nn, Cell());
 
     // P2G
@@ -281,44 +281,44 @@ void advance(nc_real dt) {
         // element-wise floor
         const Eigen::Vector2i base_coord = (p.x * inv_dx - constvec(0.5f)).cast<int>();
 
-        const Vec fx = p.x * inv_dx - base_coord.cast<nc_real>();
+        const Vector<real> fx = p.x * inv_dx - base_coord.cast<real>();
 
         // Quadratic kernels [http://mpm.graphics Eqn. 123, with x=fx, fx-1,fx-2]
-        std::vector<Vec> w{constvec(0.5).cwiseProduct(Eigen::square((constvec(1.5) - fx).array()).matrix()),
-                           constvec(0.75) - Eigen::square((fx - constvec(1.0)).array()).matrix(),
-                           constvec(0.5).cwiseProduct(Eigen::square((fx - constvec(0.5)).array()).matrix())};
+        std::vector<Vector<real>> w{constvec(0.5).cwiseProduct(Eigen::square((constvec(1.5) - fx).array()).matrix()),
+                                    constvec(0.75) - Eigen::square((fx - constvec(1.0)).array()).matrix(),
+                                    constvec(0.5).cwiseProduct(Eigen::square((fx - constvec(0.5)).array()).matrix())};
 
         // Compute current Lamé parameters [http://mpm.graphics Eqn. 86]
         const auto mu = mu_0 * hardening;
         const auto lambda = lambda_0 * hardening;
 
         // Current volume
-        const nc_real J = p.F.determinant();
+        const real J = p.F.determinant();
 
         // Polar decomposition for fixed corotated model
-        Mat r, s;
+        Matrix<real> r, s;
         polar_decomp(p.F, r, s);
 
         // [http://mpm.graphics Paragraph after Eqn. 176]
-        const nc_real Dinv = 4 * inv_dx * inv_dx;
+        const real Dinv = 4 * inv_dx * inv_dx;
 
         // [http://mpm.graphics Eqn. 52]
-        const Mat PF = (2 * mu * (p.F - r) * p.F.transpose() + constmat(lambda * (J - 1) * J));
+        const Matrix<real> PF = (2 * mu * (p.F - r) * p.F.transpose() + constmat(lambda * (J - 1) * J));
 
         // Cauchy stress times dt and inv_dx
-        const Mat stress = -(dt * vol) * (Dinv * PF);
+        const Matrix<real> stress = -(dt * vol) * (Dinv * PF);
 
         // Fused APIC momentum + MLS-MPM stress contribution
         // See http://taichi.graphics/wp-content/uploads/2019/03/mls-mpm-cpic.pdf
         // Eqn 29
-        const Mat affine = stress + particle_mass * p.C;
+        const Matrix<real> affine = stress + particle_mass * p.C;
 
         // P2G
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 3; j++) {
-                const Vec dpos = (Vec(i, j) - fx) * dx;
+                const Vector<real> dpos = (Vector<real>(i, j) - fx) * dx;
                 // Translational momentum
-                const Vec mass_x_velocity(p.v * particle_mass);
+                const Vector<real> mass_x_velocity(p.v * particle_mass);
                 const auto weight = w[i][0] * w[j][1];
                 const auto index = ((base_coord.x() + i) * nn) + (base_coord.y() + j);
                 grid[index].velocity += (weight * (mass_x_velocity + (affine * dpos)));
@@ -332,14 +332,14 @@ void advance(nc_real dt) {
     // G2P
     for (auto &p : particles) {
         // element-wise floor
-        const Eigen::Vector2i base_coord = (p.x * inv_dx - constvec(0.5f)).cast<int>();
+        const Vector<int> base_coord = (p.x * inv_dx - constvec(0.5f)).cast<int>();
 
-        const Vec fx = p.x * inv_dx - base_coord.cast<nc_real>();
+        const Vector<real> fx = p.x * inv_dx - base_coord.cast<real>();
 
         // Quadratic kernels [http://mpm.graphics Eqn. 123, with x=fx, fx-1,fx-2]
-        std::vector<Vec> w{constvec(0.5).cwiseProduct(Eigen::square((constvec(1.5) - fx).array()).matrix()),
-                           constvec(0.75) - Eigen::square((fx - constvec(1.0)).array()).matrix(),
-                           constvec(0.5).cwiseProduct(Eigen::square((fx - constvec(0.5)).array()).matrix())};
+        std::vector<Vector<real>> w{constvec(0.5).cwiseProduct(Eigen::square((constvec(1.5) - fx).array()).matrix()),
+                                    constvec(0.75) - Eigen::square((fx - constvec(1.0)).array()).matrix(),
+                                    constvec(0.5).cwiseProduct(Eigen::square((fx - constvec(0.5)).array()).matrix())};
 
         p.C = constmat(0);
         p.v = constvec(0);
@@ -347,8 +347,8 @@ void advance(nc_real dt) {
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 3; j++) {
                 const auto index = ((base_coord.x() + i) * nn) + (base_coord.y() + j);
-                const Vec dpos = (Vec(i, j) - fx);
-                const Vec &grid_v = grid[index].velocity;
+                const Vector<real> dpos = (Vector<real>(i, j) - fx);
+                const Vector<real> &grid_v = grid[index].velocity;
                 const auto weight = w[i][0] * w[j][1];
 
                 // Velocity
@@ -368,7 +368,7 @@ void advance(nc_real dt) {
 }
 
 // Seed particles with position and color
-void add_object(const Vec &center, int c) {
+void add_object(const Vector<real> &center, int c) {
     // Randomly sample 1000 particles in the square
     for (int i = 0; i < 1000; i++) {
         particles.push_back(Particle((randvec() * 2.0f - constvec(1)) * 0.08f + center, c));
@@ -379,9 +379,9 @@ int main() {
     taichi::GUI gui("Real-time 2D MLS-MPM", window_size, window_size);
     auto &canvas = gui.get_canvas();
 
-    add_object(Vec(0.35, 0.35), 0xED553B);
-    add_object(Vec(0.55, 0.15), 0xED553B);
-    add_object(Vec(0.55, 0.85), 0xED553B);
+    add_object(Vector<real>(0.35, 0.35), 0xED553B);
+    add_object(Vector<real>(0.55, 0.15), 0xED553B);
+    add_object(Vector<real>(0.55, 0.85), 0xED553B);
 
     int frame = 0;
 
