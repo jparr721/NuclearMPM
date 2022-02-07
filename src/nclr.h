@@ -32,13 +32,13 @@ namespace nclr {
         // Color
         int c;
 
-        Particle(Vector<real> x, int c, Vector<real> v = constvec<dim>(0), real mass = 1.0, real volume = 1.0)
-            : x(x), v(v), F(diag(1)), C(constmat<dim>(0)), Jp(1), c(c), mass(mass), volume(volume) {}
+        Particle(Vector<real, dim> x, int c, Vector<real, dim> v = constvec<dim>(0), real mass = 1.0, real volume = 1.0)
+            : x(x), v(v), F(diag<dim>(1)), C(constmat<dim>(0)), Jp(1), c(c), mass(mass), volume(volume) {}
     };
 
     template<int dim>
     struct Cell {
-        Vector<real> velocity;
+        Vector<real, dim> velocity;
         double mass;
         Cell() : velocity(constvec<dim>(0)), mass(0.0) {}
     };
@@ -80,7 +80,11 @@ namespace nclr {
         std::vector<Particle<dim>> particles_;
 
         inline auto p2g() -> void {
-            cells_ = std::vector<Cell<dim>>((res_ + 1) * (res_ + 1) * (dim == 3 ? (res_ + 1) : 1), Cell<dim>());
+            if constexpr (dim == 3) {
+                cells_ = std::vector<Cell<dim>>((res_ + 1) * (res_ + 1) * (res_ + 1), Cell<dim>());
+            } else {
+                cells_ = std::vector<Cell<dim>>((res_ + 1) * (res_ + 1), Cell<dim>());
+            }
 
 #pragma omp parallel for
             for (auto pp = 0; pp < particles_.size(); ++pp) {
@@ -91,7 +95,7 @@ namespace nclr {
                 const Vector<real, dim> fx = p.x * inv_dx_ - base_coord.template cast<real>();
 
                 // Quadratic kernels [http://mpm.graphics Eqn. 123, with x=fx, fx-1,fx-2]
-                std::vector<Vector<real>> w{
+                std::vector<Vector<real, dim>> w{
                         constvec<dim>(0.5).cwiseProduct(Eigen::square((constvec<dim>(1.5) - fx).array()).matrix()),
                         constvec<dim>(0.75) - Eigen::square((fx - constvec<dim>(1.0)).array()).matrix(),
                         constvec<dim>(0.5).cwiseProduct(Eigen::square((fx - constvec<dim>(0.5)).array()).matrix())};
@@ -162,7 +166,7 @@ namespace nclr {
                 const Vector<real, dim> fx = p.x * inv_dx_ - base_coord.template cast<real>();
 
                 // Quadratic kernels [http://mpm.graphics Eqn. 123, with x=fx, fx-1,fx-2]
-                std::vector<Vector<real>> w{
+                std::vector<Vector<real, dim>> w{
                         constvec<dim>(0.5).cwiseProduct(Eigen::square((constvec<dim>(1.5) - fx).array()).matrix()),
                         constvec<dim>(0.75) - Eigen::square((fx - constvec<dim>(1.0)).array()).matrix(),
                         constvec<dim>(0.5).cwiseProduct(Eigen::square((fx - constvec<dim>(0.5)).array()).matrix())};
@@ -170,11 +174,11 @@ namespace nclr {
                 p.C = constmat<dim>(0);
                 p.v = constvec<dim>(0);
 
-                for (int ii = 0; ii < 3; ii++) {
-                    for (int jj = 0; jj < 3; jj++) {
+                for (int ii = 0; ii < 3; ++ii) {
+                    for (int jj = 0; jj < 3; ++jj) {
                         if constexpr (dim == 3) {
                             for (int kk = 0; kk < 3; ++kk) {
-                                const Vector<real, dim> dpos = (Vector<real>(ii, jj) - fx);
+                                const Vector<real, dim> dpos = (Vector<real, dim>(ii, jj, kk) - fx);
 
                                 const auto index = ((base_coord.x() + ii) * (res_ + 1) * (res_ + 1)) +
                                                    ((base_coord.y() + jj) * (res_ + 1)) + (base_coord.z() + kk);
@@ -189,7 +193,7 @@ namespace nclr {
                             }
 
                         } else {
-                            const Vector<real, dim> dpos = (Vector<real>(ii, jj) - fx);
+                            const Vector<real, dim> dpos = (Vector<real, dim>(ii, jj) - fx);
 
                             const auto index = ((base_coord.x() + ii) * (res_ + 1)) + (base_coord.y() + jj);
                             const Vector<real, dim> &grid_v = cells_.at(index).velocity;
@@ -207,7 +211,7 @@ namespace nclr {
                 p.x += dt_ * p.v;
 
                 // MLS-MPM F-update
-                p.F = (diag(1) + dt_ * p.C) * p.F;
+                p.F = (diag<dim>(1) + dt_ * p.C) * p.F;
             }
         }
 
@@ -215,12 +219,12 @@ namespace nclr {
 #pragma omp parallel for collpase(dim)
             for (auto ii = 0; ii <= res_; ++ii) {
                 for (auto jj = 0; jj <= res_; ++jj) {
-                    if (dim == 3) {
+                    if constexpr (dim == 3) {
                         for (auto kk = 0; kk <= res_; ++kk) {
                             const auto index = (ii * (res_ + 1) * (res_ + 1)) + (jj * (res_ + 1)) + kk;
                             auto &g = cells_.at(index);
                             grid_normalization(g);
-                            sticky_boundary(Vector<real, dim>(ii, jj), g);
+                            sticky_boundary(Vector<real, dim>(ii, jj, kk), g);
                         }
                     } else {
                         const auto index = (ii * (res_ + 1)) + jj;
@@ -254,9 +258,10 @@ namespace nclr {
             }
         }
 
-        inline auto oob(const Vector<int> base, const int res, const Vector<int> ijk = Vector<int>::Zero()) -> bool {
-            const Vector<int> bijk = base + ijk;
-            const Vector<int> comp = Vector<int>::Ones() * res;
+        inline auto oob(const Vector<int, dim> base, const int res,
+                        const Vector<int, dim> ijk = Vector<int, dim>::Zero()) -> bool {
+            const Vector<int, dim> bijk = base + ijk;
+            const Vector<int, dim> comp = Vector<int, dim>::Ones() * res;
 
 #pragma unroll
             for (int ii = 0; ii < dim; ++ii) {

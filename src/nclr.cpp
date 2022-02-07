@@ -5,50 +5,41 @@
 #include <memory>
 
 namespace nclr {
+    constexpr int kDimension = 2;
+    constexpr int kResolution = 100;
     // Window
-    constexpr int window_size = 800;
+    constexpr int kWindowSize = 800;
 
     const real dt = 1e-4f;
     const real frame_dt = 1e-3f;
 }// namespace nclr
 
-auto map_3d() -> void {}
-
 int main() {
     using namespace nclr;
-    taichi::GUI gui("Real-time 2D MLS-MPM", window_size, window_size);
+
+    std::cout << "This is just an example project!" << std::endl;
+
+    taichi::GUI gui("Nuclear MPM", kWindowSize, kWindowSize);
     auto &canvas = gui.get_canvas();
 
-    std::vector<Particle<2>> particles;
-    auto add_object = [&particles](const Vector<real, 2> &center, int c) {
+    std::vector<Particle<kDimension>> particles;
+    auto add_object = [&particles](const Vector<real, kDimension> &center, int c) {
         for (int i = 0; i < 1000; i++) {
-            particles.emplace_back(Particle<2>((randvec<2>() * 2.0f - constvec<2>(1)) * 0.08f + center, c));
+            particles.emplace_back(
+                    Particle<kDimension>((randvec<kDimension>() * 2.0 - constvec<kDimension>(1)) * 0.08 + center, c));
         }
     };
 
-    /* add_object(Vector<real>(0.50, 0.10), 0xED553B); */
     int c = 0xED553B;
-    auto cube_particles = cube<50>(0.4, 0.6, 0.6, 0.8);
-    for (const auto &pos : cube_particles) { particles.emplace_back(Particle<2>(pos, c)); }
-    /* cube_particles = cube<50>(0.4, 0.6, 0.01, 0.21); */
-    /* for (const auto &pos : cube_particles) { particles.emplace_back(Particle<2>(pos, c)); } */
+    auto cube_particles = cube<kResolution, kDimension>(0.4, 0.6);
+    for (const auto &pos : cube_particles) { particles.emplace_back(Particle<kDimension>(pos, c)); }
+    cube_particles = cube<kResolution, kDimension>(0.4, 0.6);
+    for (auto &pos : cube_particles) {
+        pos(1) -= 0.39;
+        particles.emplace_back(Particle<2>(pos, c));
+    }
 
-    /* Matrix<real, -1> GV; */
-    /* Vector<real, 2> res(50, 50); */
-    /* grid(res, GV); */
-    /* GV /= 4; */
-    /* GV.col(0) = (GV.col(0).array() + 0.3).matrix(); */
-    /* GV.col(1) = (GV.col(1).array() + 0.1).matrix(); */
-
-    /* const real k = 0.2; */
-    /* const real t = 0.3; */
-    /* for (auto row = 0; row < GV.rows(); ++row) { */
-    /*     const Vector<real, 2> &pos = GV.row(row); */
-    /*     const auto iso = gyroid<50>(k, t, pos); */
-    /*     particles.emplace_back(Particle<2>(pos, c)); */
-    /* } */
-
-    auto sim = std::make_unique<MPMSimulation<2>>(particles);
+    auto sim = std::make_unique<MPMSimulation<kDimension>>(particles);
 
     uint64_t frame = 0;
 
@@ -63,8 +54,18 @@ int main() {
             canvas.clear(0x112F41);
             // Box
             canvas.rect(taichi::Vector2(0.04), taichi::Vector2(0.96)).radius(2).color(0x4FB99F).close();
-            // Particles
-            for (const auto &p : sim->particles()) { canvas.circle(taichi::Vector2(p.x)).radius(2).color(p.c); }
+
+            if constexpr (kDimension == 3) {
+                for (const auto &p : sim->particles()) {
+                    const Vector<real, 2> pt = pt_3d_to_2d(p.x) / 4;
+                    auto point = taichi::Vector2(pt);
+                    canvas.circle(point).radius(2).color(p.c);
+                }
+            } else {
+                // Particles
+                for (const auto &p : sim->particles()) { canvas.circle(taichi::Vector2(p.x)).radius(2).color(p.c); }
+            }
+
             // Update image
             gui.update();
         }
