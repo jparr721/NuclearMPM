@@ -61,7 +61,7 @@ namespace nclr {
         auto particles() const -> const std::vector<Particle<dim>> & { return particles_; }
 
     private:
-        static constexpr int boundary = 3;
+        static constexpr int kBoundary = 3;
 
         const int res_;
 
@@ -82,7 +82,9 @@ namespace nclr {
         inline auto p2g() -> void {
             cells_ = std::vector<Cell<dim>>((res_ + 1) * (res_ + 1) * (dim == 3 ? (res_ + 1) : 1), Cell<dim>());
 
-            for (auto &p : particles_) {
+#pragma omp parallel for
+            for (auto pp = 0; pp < particles_.size(); ++pp) {
+                auto &p = particles_.at(pp);
                 // element-wise floor
                 const Vector<int, dim> base_coord = (p.x * inv_dx_ - constvec<dim>(0.5f)).template cast<int>();
 
@@ -94,7 +96,7 @@ namespace nclr {
                         constvec<dim>(0.75) - Eigen::square((fx - constvec<dim>(1.0)).array()).matrix(),
                         constvec<dim>(0.5).cwiseProduct(Eigen::square((fx - constvec<dim>(0.5)).array()).matrix())};
 
-                // Compute current Lamé parameters [http://mpm.graphics Eqn. 86]
+                // Compute current Lamé parameters [http://mpm.graphics Eqn. 86] (for snow)
                 const auto mu = mu_0_ * hardening_;
                 const auto lambda = lambda_0_ * hardening_;
 
@@ -151,7 +153,9 @@ namespace nclr {
         }
 
         inline auto g2p() -> void {
-            for (auto &p : particles_) {
+#pragma omp parallel for
+            for (auto pp = 0; pp < particles_.size(); ++pp) {
+                auto &p = particles_.at(pp);
                 // element-wise floor
                 const Vector<int, dim> base_coord = (p.x * inv_dx_ - constvec<dim>(0.5f)).template cast<int>();
 
@@ -208,9 +212,6 @@ namespace nclr {
         }
 
         inline auto grid_op() -> void {
-            // Boundary Thickness
-            constexpr int boundary = 3;
-
 #pragma omp parallel for collpase(dim)
             for (auto ii = 0; ii <= res_; ++ii) {
                 for (auto jj = 0; jj <= res_; ++jj) {
@@ -245,8 +246,8 @@ namespace nclr {
         inline auto sticky_boundary(const Vector<real, dim> &indices, Cell<dim> &cell) -> void {
 #pragma unroll
             for (int ii = 0; ii < dim; ++ii) {
-                if (indices(ii) < boundary && cell.velocity(ii) < 0 ||
-                    indices(ii) >= (res_ + 1) - boundary && cell.velocity(ii) > 0) {
+                if (indices(ii) < kBoundary && cell.velocity(ii) < 0 ||
+                    indices(ii) >= (res_ + 1) - kBoundary && cell.velocity(ii) > 0) {
                     cell.velocity = constvec<dim>(0);
                     cell.mass = 0.0;
                 }
@@ -264,13 +265,4 @@ namespace nclr {
             return false;
         }
     };
-
-    // Utils
-    // Hardening coefficients
-    auto nclr_constant_hardening(const float mu, const float lambda, const float e) -> std::pair<float, float>;
-    auto nclr_snow_hardening(const float mu, const float lambda, const float h, const float Jp)
-            -> std::pair<float, float>;
-
-    // Cauchy stress
-    auto nclr_fixed_corotated_stress() -> Matrix<real>;
 }// namespace nclr

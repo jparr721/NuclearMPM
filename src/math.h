@@ -1,4 +1,5 @@
 #include <Eigen/Dense>
+#include <iostream>
 
 namespace nclr {
     template<typename T, int dim = 2>
@@ -65,4 +66,59 @@ namespace nclr {
         R = U * V.transpose();
         S = V * sig * V.transpose();
     }
+
+    template<int res>
+    inline auto cube(real xmin, real xmax, real ymin, real ymax) -> std::vector<Vector<real, 2>> {
+        Vector<real, res> x = Vector<real, res>::LinSpaced(xmin, xmax);
+        Vector<real, res> y = Vector<real, res>::LinSpaced(ymin, ymax);
+
+        std::vector<Vector<real, 2>> all_pts;
+        for (auto r = 0; r < x.rows(); ++r) {
+            for (auto c = 0; c < y.rows(); ++c) { all_pts.emplace_back(x(r), y(c)); }
+        }
+        return all_pts;
+    }
+
+    template<int res>
+    inline auto gyroid(real k, real t, const Vector<real, 2> &pos) -> real {
+        const auto two_pi = (2.0 * M_PI) / k;
+        const auto x = pos(0);
+        const auto y = pos(1);
+        const auto z = 0.0;
+        /* const auto z = pos(2); */
+
+        /* return std::sin(two_pi * x) * std::cos(two_pi * y); */
+        return std::sin(two_pi * x) * std::cos(two_pi * y) + std::sin(two_pi * y) * std::cos(two_pi * z) +
+               std::sin(two_pi * z) * std::cos(two_pi * x) - t;
+    }
+
+    /**
+     * igl::grid function
+     */
+    template<typename Derivedres, typename DerivedGV>
+    inline auto grid(const Eigen::MatrixBase<Derivedres> &res, Eigen::PlainObjectBase<DerivedGV> &GV) -> void {
+        using namespace Eigen;
+        typedef typename DerivedGV::Scalar Scalar;
+        GV.resize(res.array().prod(), res.size());
+        const auto lerp = [&res](const Scalar di, const int d) -> Scalar { return di / (Scalar) (res(d) - 1); };
+        int gi = 0;
+        Derivedres sub;
+        sub.resizeLike(res);
+        sub.setConstant(0);
+        for (int gi = 0; gi < GV.rows(); gi++) {
+            // omg, I'm implementing addition...
+            for (int c = 0; c < res.size() - 1; c++) {
+                if (sub(c) >= res(c)) {
+                    sub(c) = 0;
+                    // roll over
+                    sub(c + 1)++;
+                }
+            }
+            for (int c = 0; c < res.size(); c++) { GV(gi, c) = lerp(sub(c), c); }
+            sub(0)++;
+        }
+    }
+
+    /* auto cube(int xmin, int xmax, int ymin, int ymax, int zmin, int zmax, int res) -> std::vector<Vector<real, 3>> {} */
+
 }// namespace nclr
