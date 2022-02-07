@@ -1,4 +1,4 @@
-#include "math.h"
+#include "nclr_math.h"
 #include <Eigen/Dense>
 #include <Eigen/SVD>
 #include <iostream>
