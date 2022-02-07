@@ -21,15 +21,16 @@ constexpr int kResolution = 50;
 constexpr int kWindowSize = 800;
 
 // Timestep size
-constexpr real dt = 1e-4f;
+constexpr nclr::real dt = 1e-4f;
 
 // Frame draw interval
-constexpr real frame_dt = 1e-3f;
+constexpr nclr::real frame_dt = 1e-3f;
 
 // The color to paint the points
 constexpr int color = 0xED553B;
 
 int main() {
+    using namespace nclr;
     taichi::GUI gui("Nuclear MPM", kWindowSize, kWindowSize);
     auto &canvas = gui.get_canvas();
 
