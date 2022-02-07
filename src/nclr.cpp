@@ -16,7 +16,7 @@ namespace nclr {
     }
 
     // Window
-    constexpr int window_size = 1200;
+    constexpr int window_size = 800;
 
     // Grid resolution (cells)
     const int n = 80;
