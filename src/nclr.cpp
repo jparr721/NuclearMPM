@@ -6,7 +6,7 @@
 
 namespace nclr {
     constexpr int kDimension = 2;
-    constexpr int kResolution = 100;
+    constexpr int kResolution = 50;
     // Window
     constexpr int kWindowSize = 800;
 
