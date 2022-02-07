@@ -1,9 +1,19 @@
 #include "nclr_math.h"
 #include <Eigen/Dense>
 #include <Eigen/SVD>
+#include <cassert>
 #include <iostream>
 #include <utility>
 #include <vector>
+
+// Avoid conflicting declaration of min/max macros in windows headers
+#if !defined(NOMINMAX) && (defined(_WIN32) || defined(_WIN32_) || defined(WIN32) || defined(_WIN64))
+#define NOMINMAX
+#ifdef max
+#undef max
+#undef min
+#endif
+#endif
 
 namespace nclr {
     template<int dim>
@@ -92,6 +102,10 @@ namespace nclr {
                 // element-wise floor
                 const Vector<int, dim> base_coord = (p.x * inv_dx_ - constvec<dim>(0.5)).template cast<int>();
 
+#ifdef NCLR_DEBUG
+                assert(oob(base_coord));
+#endif
+
                 const Vector<real, dim> fx = p.x * inv_dx_ - base_coord.template cast<real>();
 
                 // Quadratic kernels [http://mpm.graphics Eqn. 123, with x=fx, fx-1,fx-2]
@@ -130,6 +144,9 @@ namespace nclr {
                 for (int ii = 0; ii < 3; ++ii) {
                     for (int jj = 0; jj < 3; ++jj) {
                         if constexpr (dim == 3) {
+#ifdef NCLR_DEBUG
+                            assert(oob(base_coord, Vector<real, dim>(ii, jj, kk)));
+#endif
                             for (int kk = 0; kk < 3; ++kk) {
                                 const Vector<real, dim> dpos = (Vector<real, dim>(ii, jj, kk) - fx) * dx_;
                                 const auto weight = w[ii][0] * w[jj][1] * w[kk][2];
@@ -139,6 +156,9 @@ namespace nclr {
                             }
 
                         } else {
+#ifdef NCLR_DEBUG
+                            assert(oob(base_coord, Vector<real, dim>(ii, jj)));
+#endif
                             const Vector<real, dim> dpos = (Vector<real, dim>(ii, jj) - fx) * dx_;
                             const auto weight = w[ii][0] * w[jj][1];
                             const auto index = ((base_coord.x() + ii) * (res_ + 1)) + (base_coord.y() + jj);
@@ -162,6 +182,9 @@ namespace nclr {
                 auto &p = particles_.at(pp);
                 // element-wise floor
                 const Vector<int, dim> base_coord = (p.x * inv_dx_ - constvec<dim>(0.5)).template cast<int>();
+#ifdef NCLR_DEBUG
+                assert(oob(base_coord));
+#endif
 
                 const Vector<real, dim> fx = p.x * inv_dx_ - base_coord.template cast<real>();
 
@@ -178,6 +201,9 @@ namespace nclr {
                     for (int jj = 0; jj < 3; ++jj) {
                         if constexpr (dim == 3) {
                             for (int kk = 0; kk < 3; ++kk) {
+#ifdef NCLR_DEBUG
+                                assert(oob(base_coord, Vector<real, dim>(ii, jj, kk)));
+#endif
                                 const Vector<real, dim> dpos = (Vector<real, dim>(ii, jj, kk) - fx);
 
                                 const auto index = ((base_coord.x() + ii) * (res_ + 1) * (res_ + 1)) +
@@ -193,6 +219,9 @@ namespace nclr {
                             }
 
                         } else {
+#ifdef NCLR_DEBUG
+                            assert(oob(base_coord, Vector<real, dim>(ii, jj)));
+#endif
                             const Vector<real, dim> dpos = (Vector<real, dim>(ii, jj) - fx);
 
                             const auto index = ((base_coord.x() + ii) * (res_ + 1)) + (base_coord.y() + jj);
@@ -258,10 +287,9 @@ namespace nclr {
             }
         }
 
-        inline auto oob(const Vector<int, dim> base, const int res,
-                        const Vector<int, dim> ijk = Vector<int, dim>::Zero()) -> bool {
+        inline auto oob(const Vector<int, dim> base, const Vector<int, dim> ijk = Vector<int, dim>::Zero()) -> bool {
             const Vector<int, dim> bijk = base + ijk;
-            const Vector<int, dim> comp = Vector<int, dim>::Ones() * res;
+            const Vector<int, dim> comp = Vector<int, dim>::Ones() * res_;
 
 #pragma unroll
             for (int ii = 0; ii < dim; ++ii) {
