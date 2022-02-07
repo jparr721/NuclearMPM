@@ -28,23 +28,25 @@ int main() {
 
     /* add_object(Vector<real>(0.50, 0.10), 0xED553B); */
     int c = 0xED553B;
-    auto cube_particles = cube<50>(0.45, 0.55, 0.6, 0.8);
+    auto cube_particles = cube<50>(0.4, 0.6, 0.6, 0.8);
     for (const auto &pos : cube_particles) { particles.emplace_back(Particle<2>(pos, c)); }
-    Matrix<real, -1> GV;
-    Vector<real, 2> res(50, 50);
-    grid(res, GV);
-    GV /= 4;
-    GV.col(0) = (GV.col(0).array() + 0.2).matrix();
-    GV.col(1) = (GV.col(1).array() + 0.1).matrix();
-
     /* cube_particles = cube<50>(0.4, 0.6, 0.01, 0.21); */
-    const real k = 0.2;
-    const real t = 0.3;
-    for (auto row = 0; row < GV.rows(); ++row) {
-        const Vector<real, 2> &pos = GV.row(row);
-        const auto iso = gyroid<50>(k, t, pos);
-        particles.emplace_back(Particle<2>(pos, c));
-    }
+    /* for (const auto &pos : cube_particles) { particles.emplace_back(Particle<2>(pos, c)); } */
+
+    /* Matrix<real, -1> GV; */
+    /* Vector<real, 2> res(50, 50); */
+    /* grid(res, GV); */
+    /* GV /= 4; */
+    /* GV.col(0) = (GV.col(0).array() + 0.3).matrix(); */
+    /* GV.col(1) = (GV.col(1).array() + 0.1).matrix(); */
+
+    /* const real k = 0.2; */
+    /* const real t = 0.3; */
+    /* for (auto row = 0; row < GV.rows(); ++row) { */
+    /*     const Vector<real, 2> &pos = GV.row(row); */
+    /*     const auto iso = gyroid<50>(k, t, pos); */
+    /*     particles.emplace_back(Particle<2>(pos, c)); */
+    /* } */
 
     auto sim = std::make_unique<MPMSimulation<2>>(particles);
 

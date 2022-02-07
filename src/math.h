@@ -69,8 +69,8 @@ namespace nclr {
 
     template<int res>
     inline auto cube(real xmin, real xmax, real ymin, real ymax) -> std::vector<Vector<real, 2>> {
-        Vector<real, res> x = Vector<real, res>::LinSpaced(xmin, xmax);
-        Vector<real, res> y = Vector<real, res>::LinSpaced(ymin, ymax);
+        const auto x = Vector<real, res>::LinSpaced(xmin, xmax);
+        const auto y = Vector<real, res>::LinSpaced(ymin, ymax);
 
         std::vector<Vector<real, 2>> all_pts;
         for (auto r = 0; r < x.rows(); ++r) {
@@ -80,16 +80,53 @@ namespace nclr {
     }
 
     template<int res>
-    inline auto gyroid(real k, real t, const Vector<real, 2> &pos) -> real {
+    inline auto gyroid(real k, real t, const Vector<real, 3> &pos) -> real {
         const auto two_pi = (2.0 * M_PI) / k;
         const auto x = pos(0);
         const auto y = pos(1);
-        const auto z = 0.0;
-        /* const auto z = pos(2); */
+        const auto z = pos(2);
 
-        /* return std::sin(two_pi * x) * std::cos(two_pi * y); */
         return std::sin(two_pi * x) * std::cos(two_pi * y) + std::sin(two_pi * y) * std::cos(two_pi * z) +
                std::sin(two_pi * z) * std::cos(two_pi * x) - t;
+    }
+
+    template<int res>
+    inline auto cube(int xmin, int xmax, int ymin, int ymax, int zmin, int zmax) -> std::vector<Vector<real, 3>> {
+        const auto x = Vector<real, res>::LinSpaced(xmin, ymax);
+        const auto y = Vector<real, res>::LinSpaced(ymin, ymax);
+        const auto z = Vector<real, res>::LinSpaced(zmin, zmax);
+
+        std::vector<Vector<real, 3>> all_pts;
+        for (int l = 0; l < x.rows(); ++l) {
+            for (int r = 0; r < y.rows(); ++r) {
+                for (int c = 0; c < z.rows(); ++c) { all_pts.emplace_back(x(l), y(r), z(c)); }
+            }
+        }
+        return all_pts;
+    }
+
+    inline real to_radians(real degrees) {
+        constexpr real kDegToRadConv = M_PI / 180.0;
+        return degrees * kDegToRadConv;
+    }
+
+    inline auto pt_to_2d(const std::vector<Vector<real, 3>> &points) -> std::vector<Vector<real, 2>> {
+        const auto phi = to_radians(28);
+        const auto theta = to_radians(32);
+        const auto c = std::cos(phi);
+        const auto s = std::sin(phi);
+        const auto C = std::cos(theta);
+        const auto S = std::sin(theta);
+
+        std::vector<Vector<real, 2>> mapped;
+        for (const auto &p : points) {
+            const auto point = p - Vector<real, 3>::Constant(0.5);
+            const auto x = point(0) * c + point(2) * s;
+            const auto z = point(2) * c - point(0) * s;
+            const auto v = point(1) * C + z * S;
+            mapped.emplace_back(Vector<real, 2>(x + 0.5, v + 0.5));
+        }
+        return mapped;
     }
 
     /**
@@ -118,7 +155,5 @@ namespace nclr {
             sub(0)++;
         }
     }
-
-    /* auto cube(int xmin, int xmax, int ymin, int ymax, int zmin, int zmax, int res) -> std::vector<Vector<real, 3>> {} */
 
 }// namespace nclr

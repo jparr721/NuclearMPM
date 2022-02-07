@@ -47,7 +47,7 @@ namespace nclr {
     class MPMSimulation {
     public:
         MPMSimulation(std::vector<Particle<dim>> particles, int res = 80, real dt = 1e-4, real frame_dt = 1e-3,
-                      real hardening = 0.7, real E = 1000, real nu = 0.3, real gravity = -100)
+                      real hardening = 0.3, real E = 1000, real nu = 0.3, real gravity = -9.8)
             : particles_(std::move(particles)), res_(res), dt_(dt), frame_dt_(frame_dt), dx_(1.0 / res),
               inv_dx_(1 / dx_), hardening_(hardening), E_(E), nu_(nu), gravity_(gravity), mu_0_(E / (2 * (1 + nu))),
               lambda_0_(E * nu / ((1 + nu) * (1 - 2 * nu))) {}
@@ -86,7 +86,7 @@ namespace nclr {
             for (auto pp = 0; pp < particles_.size(); ++pp) {
                 auto &p = particles_.at(pp);
                 // element-wise floor
-                const Vector<int, dim> base_coord = (p.x * inv_dx_ - constvec<dim>(0.5f)).template cast<int>();
+                const Vector<int, dim> base_coord = (p.x * inv_dx_ - constvec<dim>(0.5)).template cast<int>();
 
                 const Vector<real, dim> fx = p.x * inv_dx_ - base_coord.template cast<real>();
 
@@ -157,7 +157,7 @@ namespace nclr {
             for (auto pp = 0; pp < particles_.size(); ++pp) {
                 auto &p = particles_.at(pp);
                 // element-wise floor
-                const Vector<int, dim> base_coord = (p.x * inv_dx_ - constvec<dim>(0.5f)).template cast<int>();
+                const Vector<int, dim> base_coord = (p.x * inv_dx_ - constvec<dim>(0.5)).template cast<int>();
 
                 const Vector<real, dim> fx = p.x * inv_dx_ - base_coord.template cast<real>();
 
