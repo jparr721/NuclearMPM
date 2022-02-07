@@ -5,27 +5,11 @@
 #include <memory>
 
 namespace nclr {
-    auto nclr_constant_hardening(const float mu, const float lambda, const float e) -> std::pair<float, float> {
-        return std::make_pair(mu * e, lambda * e);
-    }
-
-    auto nclr_snow_hardening(const float mu, const float lambda, const float h, const float jp)
-            -> std::pair<float, float> {
-        const float e = std::exp(h * (1.0 - jp));
-        return nclr_constant_hardening(mu, lambda, e);
-    }
-
     // Window
     constexpr int window_size = 800;
 
-    // Grid resolution (cells)
-    const int n = 80;
-
     const real dt = 1e-4f;
     const real frame_dt = 1e-3f;
-
-    // Snow material properties
-    int step = 0;
 }// namespace nclr
 
 int main() {
@@ -46,15 +30,15 @@ int main() {
 
     auto sim = std::make_unique<MPMSimulation<2>>(particles);
 
-    int frame = 0;
+    uint64_t frame = 0;
 
     // Main Loop
-    for (step = 0;; step++) {
+    for (;; ++frame) {
         // Advance simulation
         sim->advance();
 
         // Visualize frame
-        if (step % int(frame_dt / dt) == 0) {
+        if (frame % int(frame_dt / dt) == 0) {
             // Clear background
             canvas.clear(0x112F41);
             // Box
