@@ -7,7 +7,6 @@ All of the sources are contained in two header files: `nclr.h` and `nclr_math.h`
 ```cpp
 #include "nclr.h"
 #include "taichi.h" // Packaged in the repo, not required for embedding.
-#include <Eigen/Dense>
 #include <cstdint>
 #include <memory>
 
@@ -87,7 +86,7 @@ int main() {
             gui.update();
         }
     }
-} 
+}
 ```
 
 ## Working on this project
