@@ -1,6 +1,5 @@
 #include "nclr.h"
 #include "taichi.h"
-#include <Eigen/Dense>
 #include <cstdint>
 #include <memory>
 
