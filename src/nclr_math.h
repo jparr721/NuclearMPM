@@ -132,6 +132,7 @@ namespace nclr {
 
     /**
      * igl::grid function
+     * https://github.com/libigl/libigl/blob/main/include/igl/grid.h
      */
     template<typename Derivedres, typename DerivedGV>
     inline auto grid(const Eigen::MatrixBase<Derivedres> &res, Eigen::PlainObjectBase<DerivedGV> &GV) -> void {

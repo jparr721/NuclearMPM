@@ -53,7 +53,13 @@ namespace nclr {
         Cell() : velocity(constvec<dim>(0)), mass(0.0) {}
     };
 
-    template<int dim>
+    enum class MaterialModel {
+        kSnow = 0,
+        kJelly,
+        kLiquid,
+    };
+
+    template<int dim, MaterialModel model = MaterialModel::kJelly>
     class MPMSimulation {
     public:
         MPMSimulation(std::vector<Particle<dim>> particles, int res = 80, real dt = 1e-4, real frame_dt = 1e-3,
