@@ -114,11 +114,11 @@ namespace nclr {
     }
 
 
-    template<int res, int dim>
-    inline auto cube(real min, real max) {
-        const auto _2d = [&min, max]() -> std::vector<Vector<real, 2>> {
-            const auto x = Vector<real, res>::LinSpaced(min, max);
-            const auto y = Vector<real, res>::LinSpaced(min, max);
+    template<int dim>
+    inline auto cube(int res, real min, real max) {
+        const auto _2d = [&res, &min, &max]() -> std::vector<Vector<real, 2>> {
+            const auto x = Vector<real, -1>::LinSpaced(res, min, max);
+            const auto y = Vector<real, -1>::LinSpaced(res, min, max);
 
             std::vector<Vector<real, 2>> all_pts;
             for (auto r = 0; r < x.rows(); ++r) {
@@ -127,10 +127,10 @@ namespace nclr {
             return all_pts;
         };
 
-        const auto _3d = [&min, max]() -> std::vector<Vector<real, 3>> {
-            const auto x = Vector<real, res>::LinSpaced(min, max);
-            const auto y = Vector<real, res>::LinSpaced(min, max);
-            const auto z = Vector<real, res>::LinSpaced(min, max);
+        const auto _3d = [&res, &min, &max]() -> std::vector<Vector<real, 3>> {
+            const auto x = Vector<real, -1>::LinSpaced(res, min, max);
+            const auto y = Vector<real, -1>::LinSpaced(res, min, max);
+            const auto z = Vector<real, -1>::LinSpaced(res, min, max);
 
             std::vector<Vector<real, 3>> all_pts;
             for (int l = 0; l < x.rows(); ++l) {
@@ -145,7 +145,6 @@ namespace nclr {
         if constexpr (dim == 3) { return _3d(); }
     }
 
-    template<int res>
     inline auto gyroid(real k, real t, const Vector<real, 3> &pos) -> real {
         const auto two_pi = (2.0 * M_PI) / k;
         const auto x = pos(0);
@@ -156,7 +155,7 @@ namespace nclr {
                std::sin(two_pi * z) * std::cos(two_pi * x) - t;
     }
 
-    template<int res, int dim>
+    template<int dim>
     inline auto sample(const Vector<real, dim> &center) -> std::vector<Vector<real, dim>> {
         std::vector<Vector<real, dim>> particles;
         for (int ii = 0; ii < 1000; ++ii) {

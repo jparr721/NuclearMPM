@@ -105,3 +105,6 @@ $ mkdir build && cd build && cmake -GNinja .. && ninja
 
 ### Running
 Once you've compiled, you can run this project as `./nuclear_mpm`
+
+### Advice
+The material point method can be a bit finnicky in the indexing of the grid, especially with the snow model. It is recommended to use the example project above or in the `example.cpp` file to build your simulation and verify that it eventually reaches convergence. Then, if you need it, use the `solver.cpp` executable to run the simulation as a headless runtime. This will grant you the ability to generate datasets or more complex simulation outputs. Also, if you enable `NCLR_DEBUG` you can get more predictable error conditions.

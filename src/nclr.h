@@ -60,14 +60,22 @@ namespace nclr {
         kLiquid,
     };
 
-    template<int dim, MaterialModel model = MaterialModel::kJelly>
+    template<int dim>
     class MPMSimulation {
-
     public:
-        MPMSimulation(std::vector<Particle<dim>> particles, int res = 64, real dt = 1e-4, real E = 1e4, real nu = 0.2,
-                      real gravity = -200)
-            : particles_(std::move(particles)), res_(res), dt_(dt), dx_(1.0 / res), inv_dx_(1 / dx_), E_(E), nu_(nu),
-              gravity_(gravity), mu_0_(E / (2 * (1 + nu))), lambda_0_(E * nu / ((1 + nu) * (1 - 2 * nu))) {}
+        constexpr static int kBoundary = 3;
+        constexpr static nclr::real kSnowHardening = 10.0;
+        constexpr static nclr::real kJellyHardening = 0.3;
+        constexpr static nclr::real kLiquidHardening = 1.0;
+
+        const real mu_0;
+        const real lambda_0;
+
+        MPMSimulation(std::vector<Particle<dim>> particles, const MaterialModel model, int res = 64, real dt = 1e-4,
+                      real E = 1e4, real nu = 0.2, real gravity = -100)
+            : particles_(std::move(particles)), material_model_(model), res_(res), dt_(dt), dx_(1.0 / res),
+              inv_dx_(1 / dx_), E_(E), nu_(nu), gravity_(gravity), mu_0(E / (2 * (1 + nu))),
+              lambda_0(E * nu / ((1 + nu) * (1 - 2 * nu))) {}
 
         auto advance() -> void {
             p2g();
@@ -78,11 +86,7 @@ namespace nclr {
         auto particles() const -> const std::vector<Particle<dim>> & { return particles_; }
 
     private:
-        constexpr static int kBoundary = 3;
-
-        constexpr static nclr::real kSnowHardening = 10.0;
-        constexpr static nclr::real kJellyHardening = 0.3;
-        constexpr static nclr::real kLiquidHardening = 1.0;
+        const MaterialModel material_model_;
 
         const int res_;
 
@@ -92,8 +96,6 @@ namespace nclr {
         const real E_;
         const real nu_;
         const real gravity_;
-        const real mu_0_;
-        const real lambda_0_;
 
         std::vector<Cell<dim>> cells_;
         std::vector<Particle<dim>> particles_;
@@ -226,14 +228,14 @@ namespace nclr {
                 p.x += dt_ * p.v;
                 Matrix<real, dim> _F = (diag<dim>(1) + dt_ * p.C) * p.F;
 
-                if (model == MaterialModel::kJelly) {
+                if (material_model_ == MaterialModel::kJelly) {
                     // MLS-MPM F-update for non-compressive elastic materials
                     p.F = _F;
                 } else {
                     Matrix<real, dim> U, sig, V;
                     nclr_svd(_F, U, sig, V);
 
-                    if (model == MaterialModel::kSnow) {
+                    if (material_model_ == MaterialModel::kSnow) {
                         // Plasticity operation on sigma
 #pragma unroll
                         for (int dd = 0; dd < dim; ++dd) {
@@ -246,7 +248,7 @@ namespace nclr {
                         p.F = _F;
                     }
 
-                    if (model == MaterialModel::kLiquid) {
+                    if (material_model_ == MaterialModel::kLiquid) {
                         auto J = 1.0;
                         for (int dd = 0; dd < dim; ++dd) { J *= sig(dd, dd); }
                         // Reset the deformation gradient to avoid numerical explosion
@@ -346,7 +348,7 @@ namespace nclr {
          * multiply through in this implementation.
          */
         inline auto constant_hardening(const real e) -> std::pair<real, real> {
-            return std::make_pair<real, real>(mu_0_ * e, lambda_0_ * e);
+            return std::make_pair<real, real>(mu_0 * e, lambda_0 * e);
         }
 
         inline auto snow_hardening(const Particle<dim> &p) -> std::pair<real, real> {
@@ -355,13 +357,16 @@ namespace nclr {
         }
 
         inline auto hardening(const Particle<dim> &p) -> std::pair<real, real> {
-            switch (model) {
+            switch (material_model_) {
                 case MaterialModel::kSnow:
                     return snow_hardening(p);
                 case MaterialModel::kJelly:
                     return constant_hardening(kJellyHardening);
                 case MaterialModel::kLiquid:
                     return constant_hardening(kLiquidHardening);
+                default:
+                    std::cerr << "How" << std::endl;
+                    return std::pair(0.0, 0.0);
             }
         }
 
