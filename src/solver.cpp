@@ -5,7 +5,13 @@
 #include <memory>
 
 // The color to paint the points
-constexpr int color = 0xED553B;
+constexpr int kColor = 0xED553B;
+
+// The MPM Grid Resolution (Change at your own risk!)
+constexpr int kGridResolution = 80;
+
+// The MPM Timestep (Change at your own risk!)
+constexpr nclr::real kDt = 1e-4;
 
 auto help_msg() -> void {
     std::cout << "Usage: ./nuclear_mpm_solver [OPTIONS] COMMAND [ARGS]..." << std::endl;
@@ -25,23 +31,32 @@ auto help_msg() -> void {
     std::cout << "\t--help\tShow this message and exit" << std::endl;
 }
 
+template<typename Sim, int dim>
+auto solve_mpm(const Sim &sim, int steps) -> std::vector<nclr::Particle<dim>> {
+    for (int step = 0; step < steps; ++step) {}
+}
+
 int main(int argc, char **argv) {
     const flags::args args(argc, argv);
     const auto steps = args.get<int>("steps");
     const auto cubes = args.get<int>("cubes");
     const auto cube_res = args.get<int>("cube-res");
     const auto dim = args.get<int>("dim");
-    const auto E = args.get<float>("E");
-    const auto nu = args.get<float>("nu");
+    const auto E = args.get<nclr::real>("E");
+    const auto nu = args.get<nclr::real>("nu");
+    const auto gravity = args.get<nclr::real>("gravity");
     const auto help = args.get<int>("help", false);
 
     if (help || !steps && !cubes && !cube_res && !dim && !E && !nu) { help_msg(); }
 
+    // Ew
     if (dim.value_or(2) == 2) {
         auto particles = std::vector<nclr::Particle<2>>{};
-        auto sim = std::make_unique<nclr::MPMSimulation<2>>(particles);
+        auto sim = std::make_unique<nclr::MPMSimulation<2>>(particles, kGridResolution, kDt, E.value_or(1000.0),
+                                                            nu.value_or(0.3), gravity.value_or(-9.8));
     } else {
         auto particles = std::vector<nclr::Particle<3>>{};
-        auto sim = std::make_unique<nclr::MPMSimulation<3>>(particles);
+        auto sim = std::make_unique<nclr::MPMSimulation<3>>(particles, kGridResolution, kDt, E.value_or(1000.0),
+                                                            nu.value_or(0.3), gravity.value_or(-9.8));
     }
 }

@@ -1,6 +1,7 @@
 #include "nclr_math.h"
 #include <Eigen/Dense>
 #include <Eigen/SVD>
+#include <algorithm>
 #include <cassert>
 #include <iostream>
 #include <utility>
@@ -43,13 +44,13 @@ namespace nclr {
         int c;
 
         Particle(Vector<real, dim> x, int c, Vector<real, dim> v = constvec<dim>(0), real mass = 1.0, real volume = 1.0)
-            : x(x), v(v), F(diag<dim>(1)), C(constmat<dim>(0)), Jp(1), c(c), mass(mass), volume(volume) {}
+            : x(x), v(v), F(diag<dim>(1)), C(constmat<dim>(0)), Jp(1.0), c(c), mass(mass), volume(volume) {}
     };
 
     template<int dim>
     struct Cell {
         Vector<real, dim> velocity;
-        double mass;
+        real mass;
         Cell() : velocity(constvec<dim>(0)), mass(0.0) {}
     };
 
@@ -61,12 +62,12 @@ namespace nclr {
 
     template<int dim, MaterialModel model = MaterialModel::kJelly>
     class MPMSimulation {
+
     public:
-        MPMSimulation(std::vector<Particle<dim>> particles, int res = 80, real dt = 1e-4, real frame_dt = 1e-3,
-                      real hardening = 0.3, real E = 1000, real nu = 0.3, real gravity = -9.8)
-            : particles_(std::move(particles)), res_(res), dt_(dt), frame_dt_(frame_dt), dx_(1.0 / res),
-              inv_dx_(1 / dx_), hardening_(hardening), E_(E), nu_(nu), gravity_(gravity), mu_0_(E / (2 * (1 + nu))),
-              lambda_0_(E * nu / ((1 + nu) * (1 - 2 * nu))) {}
+        MPMSimulation(std::vector<Particle<dim>> particles, int res = 80, real dt = 1e-4, real E = 1e4, real nu = 0.2,
+                      real gravity = -9.8)
+            : particles_(std::move(particles)), res_(res), dt_(dt), dx_(1.0 / res), inv_dx_(1 / dx_), E_(E), nu_(nu),
+              gravity_(gravity), mu_0_(E / (2 * (1 + nu))), lambda_0_(E * nu / ((1 + nu) * (1 - 2 * nu))) {}
 
         auto advance() -> void {
             p2g();
@@ -77,15 +78,17 @@ namespace nclr {
         auto particles() const -> const std::vector<Particle<dim>> & { return particles_; }
 
     private:
-        static constexpr int kBoundary = 3;
+        constexpr static int kBoundary = 3;
+
+        constexpr static nclr::real kSnowHardening = 10.0;
+        constexpr static nclr::real kJellyHardening = 0.3;
+        constexpr static nclr::real kLiquidHardening = 1.0;
 
         const int res_;
 
         const real dt_;
-        const real frame_dt_;
         const real dx_;
         const real inv_dx_;
-        const real hardening_;
         const real E_;
         const real nu_;
         const real gravity_;
@@ -109,7 +112,7 @@ namespace nclr {
                 const Vector<int, dim> base_coord = (p.x * inv_dx_ - constvec<dim>(0.5)).template cast<int>();
 
 #ifdef NCLR_DEBUG
-                assert(oob(base_coord));
+                assert(!oob(base_coord));
 #endif
 
                 const Vector<real, dim> fx = p.x * inv_dx_ - base_coord.template cast<real>();
@@ -120,38 +123,14 @@ namespace nclr {
                         constvec<dim>(0.75) - Eigen::square((fx - constvec<dim>(1.0)).array()).matrix(),
                         constvec<dim>(0.5).cwiseProduct(Eigen::square((fx - constvec<dim>(0.5)).array()).matrix())};
 
-                // Compute current Lamé parameters [http://mpm.graphics Eqn. 86] (for snow)
-                const auto mu = mu_0_ * hardening_;
-                const auto lambda = lambda_0_ * hardening_;
-
-                // Current volume
-                const real J = p.F.determinant();
-
-                // Polar decomposition for fixed corotated model
-                Matrix<real, dim> r, s;
-                nclr_polar(p.F, r, s);
-
-                // [http://mpm.graphics Paragraph after Eqn. 176]
-                const real Dinv = 4 * inv_dx_ * inv_dx_;
-
-                // [http://mpm.graphics Eqn. 52]
-                const Matrix<real, dim> PF =
-                        (2 * mu * (p.F - r) * p.F.transpose() + constmat<dim>(lambda * (J - 1) * J));
-
-                // Cauchy stress times dt and inv_dx
-                const Matrix<real, dim> stress = -(dt_ * p.volume) * (Dinv * PF);
-
-                // Fused APIC momentum + MLS-MPM stress contribution
-                // See http://taichi.graphics/wp-content/uploads/2019/03/mls-mpm-cpic.pdf
-                // Eqn 29
-                const Matrix<real, dim> affine = stress + p.mass * p.C;
+                const Matrix<real, dim> affine = first_piola_kirchoff_stress(p);
 
                 // P2G
                 for (int ii = 0; ii < 3; ++ii) {
                     for (int jj = 0; jj < 3; ++jj) {
                         if constexpr (dim == 3) {
 #ifdef NCLR_DEBUG
-                            assert(oob(base_coord, Vector<real, dim>(ii, jj, kk)));
+                            assert(!oob(base_coord, Vector<real, dim>(ii, jj, kk)));
 #endif
                             for (int kk = 0; kk < 3; ++kk) {
                                 const Vector<real, dim> dpos = (Vector<real, dim>(ii, jj, kk) - fx) * dx_;
@@ -163,7 +142,7 @@ namespace nclr {
 
                         } else {
 #ifdef NCLR_DEBUG
-                            assert(oob(base_coord, Vector<real, dim>(ii, jj)));
+                            assert(!oob(base_coord, Vector<real, dim>(ii, jj)));
 #endif
                             const Vector<real, dim> dpos = (Vector<real, dim>(ii, jj) - fx) * dx_;
                             const auto weight = w[ii][0] * w[jj][1];
@@ -189,7 +168,7 @@ namespace nclr {
                 // element-wise floor
                 const Vector<int, dim> base_coord = (p.x * inv_dx_ - constvec<dim>(0.5)).template cast<int>();
 #ifdef NCLR_DEBUG
-                assert(oob(base_coord));
+                assert(!oob(base_coord));
 #endif
 
                 const Vector<real, dim> fx = p.x * inv_dx_ - base_coord.template cast<real>();
@@ -208,7 +187,7 @@ namespace nclr {
                         if constexpr (dim == 3) {
                             for (int kk = 0; kk < 3; ++kk) {
 #ifdef NCLR_DEBUG
-                                assert(oob(base_coord, Vector<real, dim>(ii, jj, kk)));
+                                assert(!oob(base_coord, Vector<real, dim>(ii, jj, kk)));
 #endif
                                 const Vector<real, dim> dpos = (Vector<real, dim>(ii, jj, kk) - fx);
 
@@ -226,7 +205,7 @@ namespace nclr {
 
                         } else {
 #ifdef NCLR_DEBUG
-                            assert(oob(base_coord, Vector<real, dim>(ii, jj)));
+                            assert(!oob(base_coord, Vector<real, dim>(ii, jj)));
 #endif
                             const Vector<real, dim> dpos = (Vector<real, dim>(ii, jj) - fx);
 
@@ -242,11 +221,40 @@ namespace nclr {
                         }
                     }
                 }
+
                 // Advection
                 p.x += dt_ * p.v;
 
-                // MLS-MPM F-update
-                p.F = (diag<dim>(1) + dt_ * p.C) * p.F;
+                if (model == MaterialModel::kJelly) {
+                    // MLS-MPM F-update for non-compressive elastic materials
+                    p.F = (diag<dim>(1) + dt_ * p.C) * p.F;
+                } else if (model == MaterialModel::kSnow) {
+                    Matrix<real, dim> _F = (diag<dim>(1.0) + dt_ * p.C) * p.F;
+
+                    // MLS-MPM F-update for compressive elastic materials (elastoplastic)
+                    Matrix<real, dim> U, sig, V;
+                    nclr_svd(_F, U, sig, V);
+#pragma unroll
+                    for (int dd = 0; dd < dim; ++dd) {
+                        sig(dd, dd) = std::clamp(sig(dd, dd), real(1.0 - 2.5e-2), real(1.0 + 4.5e-3));
+                    }
+
+                    const auto old_J = _F.determinant();
+                    _F = U * sig * V.transpose();
+                    p.Jp = std::clamp(p.Jp * old_J / _F.determinant(), real(0.6), real(20.0));
+                    p.F = _F;
+                } else if (model == MaterialModel::kLiquid) {
+                    Matrix<real, dim> _F = (diag<dim>(1.0) + dt_ * p.C) * p.F;
+                    Matrix<real, dim> U, sig, V;
+                    nclr_svd(_F, U, sig, V);
+
+                    auto J = 1.0;
+
+                    for (int dd = 0; dd < dim; ++dd) { J *= sig(dd, dd); }
+
+                    p.F = diag<dim>(1.0);
+                    p.F(0, 0) = J;
+                }
             }
         }
 
@@ -290,6 +298,65 @@ namespace nclr {
                     cell.velocity = constvec<dim>(0);
                     cell.mass = 0.0;
                 }
+            }
+        }
+
+        // Utilities ==============================================
+        inline auto first_piola_kirchoff_stress(const Particle<dim> &p) -> Matrix<real, dim> {
+            // Compute current Lamé parameters [http://mpm.graphics Eqn. 86] (for snow)
+            const auto &[mu, lambda] = hardening(p);
+
+            // Current volume
+            const real J = p.F.determinant();
+
+            // Polar decomposition for fixed corotated model
+            Matrix<real, dim> r, s;
+            nclr_polar(p.F, r, s);
+
+            // [http://mpm.graphics Paragraph after Eqn. 176]
+            const real Dinv = 4 * inv_dx_ * inv_dx_;
+
+            // [http://mpm.graphics Eqn. 52]
+            const Matrix<real, dim> PF = (2 * mu * (p.F - r) * p.F.transpose() + constmat<dim>(lambda * (J - 1) * J));
+
+            // Cauchy stress times dt and inv_dx
+            const Matrix<real, dim> stress = -(dt_ * p.volume) * (Dinv * PF);
+
+            // Fused APIC momentum + MLS-MPM stress contribution
+            // See http://taichi.graphics/wp-content/uploads/2019/03/mls-mpm-cpic.pdf
+            // Eqn 29
+            return stress + p.mass * p.C;// Affine MLS-MPM Stress update
+        }
+
+        // TODO(@jparr721) - Implement neo-hookean stress model.
+
+        /**
+         * Compute the hardening of the plasticity model as
+         * F^n+1 = F^n+1_E + F_n+1_P
+         * Where each component is the elastic and plastic components of the hardening model.
+         * This is simplified as:
+         * mu(F_P) = mu_0 * e^epsilon(1 - J_p)
+         * lambda(F_P) = lambda_0 * e^epsilon(1 - J_p)
+         * J_p (volume) is provided by the particle, so we just compute the value of e and
+         * multiply through in this implementation.
+         */
+        inline auto constant_hardening(const real e) -> std::pair<real, real> {
+            return std::make_pair<real, real>(mu_0_ * e, lambda_0_ * e);
+        }
+
+        inline auto snow_hardening(const Particle<dim> &p) -> std::pair<real, real> {
+            const auto e = std::exp(kSnowHardening * (1.0 - p.Jp));
+            return constant_hardening(e);
+        }
+
+        inline auto hardening(const Particle<dim> &p) -> std::pair<real, real> {
+            switch (model) {
+                case MaterialModel::kSnow:
+                    return snow_hardening(p);
+                case MaterialModel::kJelly:
+                    return constant_hardening(kJellyHardening);
+                case MaterialModel::kLiquid:
+                    return constant_hardening(kLiquidHardening);
             }
         }
 

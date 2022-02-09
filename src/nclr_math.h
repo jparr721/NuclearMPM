@@ -48,8 +48,63 @@ namespace nclr {
     }
 
     template<int dim>
+    inline auto nclr_polar(const Matrix<real, dim> &m, Matrix<real, dim> &R, Matrix<real, dim> &S) -> void {
+        if constexpr (dim == 2) {
+            const auto x = m(0, 0) + m(1, 1);
+            const auto y = m(1, 0) - m(0, 1);
+            const auto scale = 1.0f / std::sqrt(x * x + y * y);
+            const auto c = x * scale, s = y * scale;
+            R(0, 0) = c;
+            R(0, 1) = -s;
+            R(1, 0) = s;
+            R(1, 1) = c;
+            S = R.transpose() * m;
+        } else {
+            Matrix<real, dim> sig;
+            Matrix<real, dim> U, V;
+            nclr_svd(m, U, sig, V);
+
+            R = U * V.transpose();
+            S = V * sig * V.transpose();
+        }
+    }
+
+    template<int dim>
     inline auto nclr_svd(const Matrix<real, dim> &a, Matrix<real, dim> &U, Matrix<real, dim> &sig, Matrix<real, dim> &V)
             -> void {
+        if constexpr (dim == 2) {
+            Matrix<real, dim> S;
+            nclr_polar(a, U, S);
+            real c, s;
+            if (std::abs(S(0, 1)) < 1e-6f) {
+                sig = S;
+                c = 1;
+                s = 0;
+            } else {
+                const auto tao = 0.5f * (S(0, 0) - S(1, 1));
+                const auto w = std::sqrt(tao * tao + S(0, 1) * S(0, 1));
+                const auto t = tao > 0 ? S(0, 1) / (tao + w) : S(0, 1) / (tao - w);
+                c = 1.0f / std::sqrt(t * t + 1);
+                s = -t * c;
+                sig(0, 0) = std::pow(c, 2) * S(0, 0) - 2 * c * s * S(0, 1) + std::pow(s, 2) * S(1, 1);
+                sig(1, 1) = std::pow(s, 2) * S(0, 0) + 2 * c * s * S(0, 1) + std::pow(c, 2) * S(1, 1);
+            }
+            if (sig(0, 0) < sig(1, 1)) {
+                std::swap(sig(0, 0), sig(1, 1));
+                V(0, 0) = -s;
+                V(0, 1) = -c;
+                V(1, 0) = c;
+                V(1, 1) = -s;
+            } else {
+                V(0, 0) = c;
+                V(0, 1) = -s;
+                V(1, 0) = s;
+                V(1, 1) = c;
+            }
+            V.transposeInPlace();
+            U = U * V;
+        }
+
         const auto svd = Eigen::JacobiSVD<Matrix<real, dim>>(a, Eigen::ComputeFullU | Eigen::ComputeFullV);
         U = svd.matrixU();
         V = svd.matrixV();
@@ -58,15 +113,6 @@ namespace nclr {
         for (int ii = 0; ii < dim; ++ii) { sig(ii, ii) = values(ii); }
     }
 
-    template<int dim>
-    inline auto nclr_polar(const Matrix<real, dim> &m, Matrix<real, dim> &R, Matrix<real, dim> &S) -> void {
-        Matrix<real, dim> sig;
-        Matrix<real, dim> U, V;
-        nclr_svd(m, U, sig, V);
-
-        R = U * V.transpose();
-        S = V * sig * V.transpose();
-    }
 
     template<int res, int dim>
     inline auto cube(real min, real max) {
@@ -108,6 +154,14 @@ namespace nclr {
 
         return std::sin(two_pi * x) * std::cos(two_pi * y) + std::sin(two_pi * y) * std::cos(two_pi * z) +
                std::sin(two_pi * z) * std::cos(two_pi * x) - t;
+    }
+
+    template<int res, int dim>
+    inline auto sample(const Vector<real, dim> &center) -> std::vector<Vector<real, dim>> {
+        std::vector<Vector<real, dim>> particles;
+        for (int ii = 0; ii < 1000; ++ii) {
+            particles.push_back((randvec<dim>() * 2.0 - constvec<dim>(1)) * 0.08 + center);
+        }
     }
 
     inline real to_radians(real degrees) {
