@@ -37,12 +37,14 @@ int main() {
 
     // Move the cube to the bottom of the screen so it doesn't bounce
     for (auto &pos : cube_particles) {
-        pos(1) -= 0.39;
+        pos(1) -= 0.35;
         particles.emplace_back(Particle<2>(pos, color));
     }
 
-    // Allocate a mutable simulation object
-    auto sim = std::make_unique<MPMSimulation<kDimension>>(particles);
+    // Allocate a mutable simulation object, uncomment each for surprise!
+    /* auto sim = std::make_unique<MPMSimulation<kDimension, MaterialModel::kLiquid>>(particles); */
+    /* auto sim = std::make_unique<MPMSimulation<kDimension, MaterialModel::kSnow>>(particles); */
+    auto sim = std::make_unique<MPMSimulation<kDimension, MaterialModel::kJelly>>(particles);
 
     // Main Loop
     for (uint64_t frame = 0;; ++frame) {

@@ -64,8 +64,8 @@ namespace nclr {
     class MPMSimulation {
 
     public:
-        MPMSimulation(std::vector<Particle<dim>> particles, int res = 80, real dt = 1e-4, real E = 1e4, real nu = 0.2,
-                      real gravity = -9.8)
+        MPMSimulation(std::vector<Particle<dim>> particles, int res = 64, real dt = 1e-4, real E = 1e4, real nu = 0.2,
+                      real gravity = -200)
             : particles_(std::move(particles)), res_(res), dt_(dt), dx_(1.0 / res), inv_dx_(1 / dx_), E_(E), nu_(nu),
               gravity_(gravity), mu_0_(E / (2 * (1 + nu))), lambda_0_(E * nu / ((1 + nu) * (1 - 2 * nu))) {}
 
@@ -224,36 +224,35 @@ namespace nclr {
 
                 // Advection
                 p.x += dt_ * p.v;
+                Matrix<real, dim> _F = (diag<dim>(1) + dt_ * p.C) * p.F;
 
                 if (model == MaterialModel::kJelly) {
                     // MLS-MPM F-update for non-compressive elastic materials
-                    p.F = (diag<dim>(1) + dt_ * p.C) * p.F;
-                } else if (model == MaterialModel::kSnow) {
-                    Matrix<real, dim> _F = (diag<dim>(1.0) + dt_ * p.C) * p.F;
-
-                    // MLS-MPM F-update for compressive elastic materials (elastoplastic)
+                    p.F = _F;
+                } else {
                     Matrix<real, dim> U, sig, V;
                     nclr_svd(_F, U, sig, V);
+
+                    if (model == MaterialModel::kSnow) {
+                        // Plasticity operation on sigma
 #pragma unroll
-                    for (int dd = 0; dd < dim; ++dd) {
-                        sig(dd, dd) = std::clamp(sig(dd, dd), real(1.0 - 2.5e-2), real(1.0 + 4.5e-3));
+                        for (int dd = 0; dd < dim; ++dd) {
+                            sig(dd, dd) = std::clamp(sig(dd, dd), real(1.0 - 2.5e-2), real(1.0 + 4.5e-3));
+                        }
+
+                        const auto old_J = _F.determinant();
+                        _F = U * sig * V.transpose();
+                        p.Jp = std::clamp(p.Jp * old_J / _F.determinant(), real(0.6), real(20.0));
+                        p.F = _F;
                     }
 
-                    const auto old_J = _F.determinant();
-                    _F = U * sig * V.transpose();
-                    p.Jp = std::clamp(p.Jp * old_J / _F.determinant(), real(0.6), real(20.0));
-                    p.F = _F;
-                } else if (model == MaterialModel::kLiquid) {
-                    Matrix<real, dim> _F = (diag<dim>(1.0) + dt_ * p.C) * p.F;
-                    Matrix<real, dim> U, sig, V;
-                    nclr_svd(_F, U, sig, V);
-
-                    auto J = 1.0;
-
-                    for (int dd = 0; dd < dim; ++dd) { J *= sig(dd, dd); }
-
-                    p.F = diag<dim>(1.0);
-                    p.F(0, 0) = J;
+                    if (model == MaterialModel::kLiquid) {
+                        auto J = 1.0;
+                        for (int dd = 0; dd < dim; ++dd) { J *= sig(dd, dd); }
+                        // Reset the deformation gradient to avoid numerical explosion
+                        p.F = diag<dim>(1.0);
+                        p.F(0, 0) = J;
+                    }
                 }
             }
         }
@@ -280,6 +279,7 @@ namespace nclr {
         }
 
         inline auto grid_normalization(Cell<dim> &cell) -> void {
+            const real allowed_velocity = dx_ * 0.9 / dt_;
             // No need for epsilon here
             if (cell.mass > 0.0) {
                 // Normalize by mass
@@ -287,14 +287,19 @@ namespace nclr {
 
                 // Apply Gravity to Y axis
                 cell.velocity(1) += dt_ * gravity_;
+
+                // Clip the grid velocity
+                for (int dd = 0; dd < dim; ++dd) {
+                    cell.velocity(dd) = std::clamp(cell.velocity(dd), -allowed_velocity, allowed_velocity);
+                }
             }
         }
 
         inline auto sticky_boundary(const Vector<real, dim> &indices, Cell<dim> &cell) -> void {
 #pragma unroll
-            for (int ii = 0; ii < dim; ++ii) {
-                if (indices(ii) < kBoundary && cell.velocity(ii) < 0 ||
-                    indices(ii) >= (res_ + 1) - kBoundary && cell.velocity(ii) > 0) {
+            for (int dd = 0; dd < dim; ++dd) {
+                if (indices(dd) < kBoundary && cell.velocity(dd) < 0 ||
+                    indices(dd) >= (res_ + 1) - kBoundary && cell.velocity(dd) > 0) {
                     cell.velocity = constvec<dim>(0);
                     cell.mass = 0.0;
                 }
