@@ -12,7 +12,7 @@ namespace fs = std::filesystem;
 constexpr int kColor = 0xED553B;
 
 // The MPM Grid Resolution (Change at your own risk!)
-constexpr int kGridResolution = 80;
+constexpr int kGridResolution = 64;
 
 // The MPM Timestep (Change at your own risk!)
 constexpr nclr::real kDt = 1e-4;
@@ -38,16 +38,22 @@ auto help_msg() -> void {
 }
 
 template<int dim, typename Sim>
-auto solve_mpm(const Sim &sim, int steps, bool dump) -> std::vector<std::vector<nclr::Particle<dim>>> {
-    std::vector<std::vector<nclr::Particle<dim>>> states;
+auto solve_mpm(const Sim &sim, int steps, bool dump, std::vector<std::vector<nclr::Particle<dim>>> &states,
+               std::vector<std::vector<nclr::Cell<dim>>> &cells) -> void {
     std::cout << "Running simulation" << std::endl;
     for (int step = 0; step < steps; ++step) {
-        if (dump) { states.push_back(sim->particles()); }
+        if (dump) {
+            states.push_back(sim->particles());
+            if (step > 0) {
+                cells.push_back(sim->grid());
+            } else {
+                cells.push_back(
+                        std::vector<nclr::Cell<dim>>((kGridResolution + 1) * (kGridResolution + 1), nclr::Cell<dim>()));
+            }
+        }
         sim->advance();
     }
     std::cout << "Simulation done" << std::endl;
-    if (dump) { return states; }
-    return std::vector<std::vector<nclr::Particle<dim>>>{};
 }
 
 auto exe_path() -> fs::path { return fs::canonical("."); }
@@ -98,6 +104,27 @@ auto unload_particles(const std::string material_model, const Sim &sim,
     std::cout << "Done saving" << std::endl;
 }
 
+template<int dim, typename Sim>
+auto unload_cells(const Sim &sim, const std::vector<std::vector<nclr::Cell<dim>>> &cells) -> void {
+    const std::string mass_filename = "mass.txt";
+    const std::string velocity_filename = "velocity.txt";
+
+    const auto to_1d = [](int x, int y, int max) -> float { return (x * max) + y; };
+    std::cout << "Saving grid states" << std::endl;
+    int step = 0;
+    for (const auto &grid_state : cells) {
+        const std::string prefix = std::to_string(step) + "_";
+        for (int ii = 0; ii <= kGridResolution; ++ii) {
+            for (int jj = 0; jj <= kGridResolution; ++jj) {
+                save_value(grid_state.at(to_1d(ii, jj, kGridResolution)).mass, prefix + mass_filename);
+                save_value(grid_state.at(to_1d(ii, jj, kGridResolution)).velocity, prefix + velocity_filename);
+            }
+        }
+        ++step;
+    }
+    std::cout << "Done saving" << std::endl;
+}
+
 int main(int argc, char **argv) {
     const flags::args args(argc, argv);
     const auto steps = args.get<int>("steps");
@@ -134,12 +161,17 @@ int main(int argc, char **argv) {
         for (const auto &pos : cube_particles) { particles.emplace_back(nclr::Particle<2>(pos, kColor)); }
         auto sim = std::make_unique<nclr::MPMSimulation<2>>(particles, model, kGridResolution, kDt, E.value_or(1000.0),
                                                             nu.value_or(0.3), gravity.value_or(-100.0));
-        const auto states = solve_mpm<2>(sim, steps.value_or(1000), dump);
-        if (dump) { unload_particles<2>(material_model.value_or("jelly"), sim, states); }
+        std::vector<std::vector<nclr::Particle<2>>> states;
+        std::vector<std::vector<nclr::Cell<2>>> cells;
+        solve_mpm<2>(sim, steps.value_or(1000), dump, states, cells);
+        if (dump) {
+            unload_particles<2>(material_model.value_or("jelly"), sim, states);
+            unload_cells<2>(sim, cells);
+        }
     } else {
         auto particles = std::vector<nclr::Particle<3>>{};
         auto sim = std::make_unique<nclr::MPMSimulation<3>>(particles, model, kGridResolution, kDt, E.value_or(1000.0),
                                                             nu.value_or(0.3), gravity.value_or(-100.0));
-        const auto states = solve_mpm<3>(sim, steps.value_or(1000), dump);
+        /* const auto states = solve_mpm<3>(sim, steps.value_or(1000), dump); */
     }
 }

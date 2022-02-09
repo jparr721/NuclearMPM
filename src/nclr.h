@@ -84,6 +84,7 @@ namespace nclr {
         }
 
         auto particles() const -> const std::vector<Particle<dim>> & { return particles_; }
+        auto grid() const -> const std::vector<Cell<dim>> & { return cells_; }
 
     private:
         const MaterialModel material_model_;
