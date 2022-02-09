@@ -43,8 +43,8 @@ int main() {
 
     // Allocate a mutable simulation object, uncomment each for surprise!
     /* auto sim = std::make_unique<MPMSimulation<kDimension>>(particles, MaterialModel::kLiquid); */
-    /* auto sim = std::make_unique<MPMSimulation<kDimension>>(particles, MaterialModel::kSnow); */
-    auto sim = std::make_unique<MPMSimulation<kDimension>>(particles, MaterialModel::kJelly);
+    auto sim = std::make_unique<MPMSimulation<kDimension>>(particles, MaterialModel::kSnow);
+    /* auto sim = std::make_unique<MPMSimulation<kDimension>>(particles, MaterialModel::kJelly); */
 
     // Main Loop
     for (uint64_t frame = 0;; ++frame) {

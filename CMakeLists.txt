@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.4...3.18)
+cmake_minimum_required(VERSION 3.12...3.18)
 project(nuclear_mpm)
 
 set(PROJECT_NAME_EXAMPLE ${PROJECT_NAME}_example)

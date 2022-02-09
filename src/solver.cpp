@@ -136,10 +136,10 @@ int main(int argc, char **argv) {
                                                             nu.value_or(0.3), gravity.value_or(-100.0));
         const auto states = solve_mpm<2>(sim, steps.value_or(1000), dump);
         if (dump) { unload_particles<2>(material_model.value_or("jelly"), sim, states); }
-    } /* else { */
-    /*     auto particles = std::vector<nclr::Particle<3>>{}; */
-    /*     auto sim = std::make_unique<nclr::MPMSimulation<3>>(particles, model, kGridResolution, kDt, E.value_or(1000.0), */
-    /*                                                         nu.value_or(0.3), gravity.value_or(-100.0)); */
-    /*     const auto states = solve_mpm<3>(sim, steps.value_or(1000), dump); */
-    /* } */
+    } else {
+        auto particles = std::vector<nclr::Particle<3>>{};
+        auto sim = std::make_unique<nclr::MPMSimulation<3>>(particles, model, kGridResolution, kDt, E.value_or(1000.0),
+                                                            nu.value_or(0.3), gravity.value_or(-100.0));
+        const auto states = solve_mpm<3>(sim, steps.value_or(1000), dump);
+    }
 }
