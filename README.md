@@ -6,7 +6,7 @@ All of the sources are contained in two header files: `nclr.h` and `nclr_math.h`
 ## Example Project
 ```cpp
 #include "nclr.h"
-#include "taichi.h" // Packaged in the repo, not required for embedding.
+#include "taichi.h"// Packaged in the repo, not required for embedding
 #include <cstdint>
 #include <memory>
 
@@ -36,11 +36,11 @@ int main() {
     std::vector<Particle<kDimension>> particles;
 
     // Draw a cube in section 0.4 to 0.6 in x->y
-    auto cube_particles = cube<kResolution, kDimension>(0.4, 0.6);
+    auto cube_particles = cube<kDimension>(kResolution, 0.4, 0.6);
     for (const auto &pos : cube_particles) { particles.emplace_back(Particle<kDimension>(pos, color)); }
 
     // Draw a cube in section 0.4 to 0.6 in x->y
-    cube_particles = cube<kResolution, kDimension>(0.4, 0.6);
+    cube_particles = cube<kDimension>(kResolution, 0.4, 0.6);
 
     // Move the cube to the bottom of the screen so it doesn't bounce
     for (auto &pos : cube_particles) {
@@ -49,9 +49,9 @@ int main() {
     }
 
     // Allocate a mutable simulation object, uncomment each for surprise!
-    /* auto sim = std::make_unique<MPMSimulation<kDimension, MaterialModel::kLiquid>>(particles); */
-    /* auto sim = std::make_unique<MPMSimulation<kDimension, MaterialModel::kSnow>>(particles); */
-    auto sim = std::make_unique<MPMSimulation<kDimension, MaterialModel::kJelly>>(particles);
+    /* auto sim = std::make_unique<MPMSimulation<kDimension>>(particles, MaterialModel::kLiquid); */
+    auto sim = std::make_unique<MPMSimulation<kDimension>>(particles, MaterialModel::kSnow);
+    /* auto sim = std::make_unique<MPMSimulation<kDimension>>(particles, MaterialModel::kJelly); */
 
     // Main Loop
     for (uint64_t frame = 0;; ++frame) {

@@ -1,5 +1,5 @@
 #include "nclr.h"
-#include "taichi.h"
+#include "taichi.h"// Packaged in the repo, not required for embedding
 #include <cstdint>
 #include <memory>
 
