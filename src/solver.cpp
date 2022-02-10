@@ -130,6 +130,24 @@ auto unload_cells(const Sim &sim, const std::vector<std::vector<nclr::Cell<dim>>
     std::cout << "Done saving" << std::endl;
 }
 
+template<int dim>
+auto generate_cubes(const std::optional<int> &cubes, const std::optional<int> &cube_res, const flags::args &args)
+        -> std::vector<nclr::Particle<dim>> {
+    auto particles = std::vector<nclr::Particle<dim>>{};
+    for (int cc = 0; cc < cubes.value_or(1); ++cc) {
+        const auto cube_n_x = args.get<nclr::real>("cube" + std::to_string(cc) + "-x");
+        const auto cube_n_y = args.get<nclr::real>("cube" + std::to_string(cc) + "-y");
+        if (!cube_n_x || !cube_n_y) {
+            std::cerr << "Cube: " << cc << " is missing coordinates" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        auto cube_particles = nclr::cube<dim>(cube_res.value_or(25), cube_n_x.value(), cube_n_y.value());
+        for (const auto &pos : cube_particles) { particles.emplace_back(nclr::Particle<dim>(pos, kColor)); }
+    }
+
+    return particles;
+}
+
 int main(int argc, char **argv) {
     const flags::args args(argc, argv);
     const auto steps = args.get<int>("steps");
@@ -159,18 +177,17 @@ int main(int argc, char **argv) {
         model = nclr::MaterialModel::kLiquid;
     }
 
+
     // Ew
     if (dim.value_or(2) == 2) {
-        auto particles = std::vector<nclr::Particle<2>>{};
-        auto cube_particles = nclr::cube<2>(cube_res.value_or(25), 0.4, 0.6);
-        for (const auto &pos : cube_particles) { particles.emplace_back(nclr::Particle<2>(pos, kColor)); }
+        const auto particles = generate_cubes<2>(cubes, cube_res, args);
         auto sim = std::make_unique<nclr::MPMSimulation<2>>(particles, model, kGridResolution, kDt, E.value_or(1000.0),
                                                             nu.value_or(0.3), gravity.value_or(-100.0));
         std::vector<std::vector<nclr::Particle<2>>> states;
         std::vector<std::vector<nclr::Cell<2>>> cells;
         solve_mpm<2>(sim, steps.value_or(1000), dump, states, cells);
 #ifdef NCLR_SOLVER_VIZ
-        taichi::GUI gui("Results - Close To Save", kWindowSize, kWindowSize);
+        taichi::GUI gui("Results", kWindowSize, kWindowSize);
         auto &canvas = gui.get_canvas();
         for (const auto &state : states) {
             // Clear background
