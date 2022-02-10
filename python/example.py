@@ -1,6 +1,7 @@
-import numpy as np
-import pandas as pd
+import os
+
 from ioutils import process_tmp
 
 if __name__ == "__main__":
-    process_tmp()
+    tmp = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tmp")
+    process_tmp(tmp)
