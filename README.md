@@ -91,7 +91,20 @@ int main() {
 }
 ```
 
-## Working on this project
+## Example Headless Solver for Data Generation
+**NOTE**: The simulator does not overwrite the files that are saved, so make sure you remove the folder if you generate multiple datasets.
+
+If you've followed the build instructions in the below section, you should have a `build` directory. From whatever root dir you move the executable to, you can run:
+```bash
+$ ./nuclear_mpm_solver --help
+```
+This will give you an exhaustive list of parameters for the sim, an example simulation is the following:
+```bash
+$ ./nuclear_mpm_solver --dump --steps 4000 --cube0-x 0.4 --cube0-y 0.6
+```
+This will run the simulation and generate the results data. If you have viz mode on (documented below) you will be able to see the results of the simulation before it saves.
+
+## Working With This Project
 ### Requirements
 You can install the necessary dependencies (on ubuntu/pop-os) with:
 ```bash
@@ -101,6 +114,11 @@ $ sudo apt update && sudo apt install -y libeigen3-dev libx11-dev # ninja-build 
 This project doesn't bark at you for doing an in-source build, but I _highly_ recommend against it. In the event that you want to run the sample project, just do the following:
 ```bash
 $ mkdir build && cd build && cmake -GNinja .. && ninja
+```
+
+Alternatively, you can enable debugging mode (assert when failure conditions are found) as well as gui mode for the headless solver:
+```bash
+$ mkdir build && cd build && cmake -GNinja -DWITH_NCLR_DEBUG=ON -DWITH_NCLR_SOLVER_VIZ=ON .. && ninja
 ```
 
 ### Running
