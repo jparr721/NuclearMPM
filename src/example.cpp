@@ -19,7 +19,7 @@ constexpr nclr::real dt = 1e-4f;
 constexpr nclr::real frame_dt = 1e-3f;
 
 // The color to paint the points
-constexpr int color = 0xED553B;
+constexpr int kColor = 0xED553B;
 
 int main() {
     using namespace nclr;
@@ -30,7 +30,7 @@ int main() {
 
     // Draw a cube in section 0.4 to 0.6 in x->y
     auto cube_particles = cube<kDimension>(kResolution, 0.4, 0.6);
-    for (const auto &pos : cube_particles) { particles.emplace_back(Particle<kDimension>(pos, color)); }
+    for (const auto &pos : cube_particles) { particles.emplace_back(Particle<kDimension>(pos, kColor)); }
 
     // Draw a cube in section 0.4 to 0.6 in x->y
     cube_particles = cube<kDimension>(kResolution, 0.4, 0.6);
@@ -38,7 +38,7 @@ int main() {
     // Move the cube to the bottom of the screen so it doesn't bounce
     for (auto &pos : cube_particles) {
         pos(1) -= 0.35;
-        particles.emplace_back(Particle<2>(pos, color));
+        particles.emplace_back(Particle<2>(pos, kColor));
     }
 
     // Allocate a mutable simulation object, uncomment each for surprise!

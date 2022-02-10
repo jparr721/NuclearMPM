@@ -5,8 +5,13 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
+#ifdef NCLR_SOLVER_VIZ
+#include "taichi.h"
+#endif
 
 namespace fs = std::filesystem;
+
+constexpr int kWindowSize = 800;
 
 // The color to paint the points
 constexpr int kColor = 0xED553B;
@@ -150,7 +155,7 @@ int main(int argc, char **argv) {
     auto model = nclr::MaterialModel::kJelly;
     if (material_model == "snow") {
         model = nclr::MaterialModel::kSnow;
-    } else {
+    } else if (material_model == "liquid") {
         model = nclr::MaterialModel::kLiquid;
     }
 
@@ -164,6 +169,24 @@ int main(int argc, char **argv) {
         std::vector<std::vector<nclr::Particle<2>>> states;
         std::vector<std::vector<nclr::Cell<2>>> cells;
         solve_mpm<2>(sim, steps.value_or(1000), dump, states, cells);
+#ifdef NCLR_SOLVER_VIZ
+        taichi::GUI gui("Results - Close To Save", kWindowSize, kWindowSize);
+        auto &canvas = gui.get_canvas();
+        for (const auto &state : states) {
+            // Clear background
+            canvas.clear(0x112F41);
+
+            // Boundary Condition Box
+            canvas.rect(taichi::Vector2(0.04), taichi::Vector2(0.96)).radius(2).color(0x4FB99F).close();
+            for (const auto &particle : state) {
+                // Load the particle
+                canvas.circle(taichi::Vector2(particle.x)).radius(2).color(particle.c);
+            }
+
+            gui.update();
+        }
+#endif
+
         if (dump) {
             unload_particles<2>(material_model.value_or("jelly"), sim, states);
             unload_cells<2>(sim, cells);

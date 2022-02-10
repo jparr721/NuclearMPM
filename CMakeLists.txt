@@ -12,7 +12,13 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-enum-enum-conversion -Of
 find_package(Eigen3 CONFIG REQUIRED)
 find_package(X11 REQUIRED)
 
-option(NCLR_DEBUG OFF)
+if (WITH_NCLR_SOLVER_VIZ)
+  add_definitions(-DNCLR_SOLVER_VIZ)
+endif()
+
+if (WITH_NCLR_DEBUG)
+  add_defitions(-DNCLR_DEBUG)
+endif()
 
 add_subdirectory(flags)
 
