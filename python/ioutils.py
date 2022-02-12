@@ -73,11 +73,8 @@ def process_tmp(tmp: str):
             logger.error(f"ValueKey {valuekey} is invalid")
 
     # Round up all the dict keys so we can process filenames more easily.
-    filepaths = []
-    for f in os.listdir(tmp):
-        filepaths.append(f)
-
-    filepaths.sort(
+    filepaths = sorted(
+        list(os.listdir(tmp)),
         key=lambda s: [int(t) if t.isdigit() else t for t in re.split("(\\d+)", s)],
     )
     filepaths = [tmp + "/" + keyname for keyname in filepaths]
