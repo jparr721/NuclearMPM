@@ -1,7 +1,7 @@
 # NuclearMPM
 NuclearMPM is a high-efficiency MPM implementation using CPU-bound parallelism with a focus on being as ebeddable as possible. This library contains no UI code or baked-in GUI and instead relies on the user wrapping it however they'd like.
 
-All of the sources are contained in two header files: `nclr.h` and `nclr_math.h`. Any other headers are to run the example code in `nclr.cpp`
+All of the sources are contained in two header files: `nclr.h` and `nclr_math.h`. Any other headers are to run the example code in `example.cpp`
 
 ## Example Project
 ```cpp
