@@ -12,10 +12,11 @@ add_executable(
   parallel_test.cpp
   solver_cli_test.cpp
   snapshot_io_test.cpp
+  camera_test.cpp
 )
 target_link_libraries(
   nuclear_mpm_tests
-  PRIVATE NuclearMPM::NuclearMPM nuclear_mpm_cli Catch2::Catch2WithMain
+  PRIVATE NuclearMPM::NuclearMPM nuclear_mpm_cli nuclear_mpm_camera Catch2::Catch2WithMain
 )
 
 include(Catch)

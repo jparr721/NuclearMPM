@@ -55,6 +55,10 @@ target_link_libraries(nuclear_mpm_cli PUBLIC NuclearMPM::NuclearMPM PRIVATE flag
 add_executable(nuclear_mpm_solver src/solver.cpp)
 target_link_libraries(nuclear_mpm_solver PRIVATE nuclear_mpm_cli)
 
+add_library(nuclear_mpm_camera src/camera.cpp)
+target_include_directories(nuclear_mpm_camera PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(nuclear_mpm_camera PUBLIC NuclearMPM::NuclearMPM)
+
 if(NUCLEAR_MPM_BUILD_WORKBENCH OR WITH_NCLR_SOLVER_VIZ)
   set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
   set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -74,7 +78,7 @@ if(NUCLEAR_MPM_BUILD_WORKBENCH OR WITH_NCLR_SOLVER_VIZ)
 
   add_library(nuclear_mpm_visualizer src/visualizer.cpp)
   target_include_directories(nuclear_mpm_visualizer PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
-  target_link_libraries(nuclear_mpm_visualizer PRIVATE glfw glad_gl_core_41 OpenGL::GL)
+  target_link_libraries(nuclear_mpm_visualizer PRIVATE nuclear_mpm_camera glfw glad_gl_core_41 OpenGL::GL)
 
   if(NUCLEAR_MPM_BUILD_WORKBENCH)
     add_executable(nuclear_mpm_example src/example.cpp)
