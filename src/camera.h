@@ -19,6 +19,8 @@ struct CameraInput {
 
 [[nodiscard]] auto operator==(const CameraInput &left, const CameraInput &right) noexcept -> bool;
 [[nodiscard]] auto filter_camera_input(const CameraInput &input, bool ui_wants_mouse) noexcept -> CameraInput;
+[[nodiscard]] auto map_pointer_camera_input(const Eigen::Vector2f &cursor_delta, bool orbit_active,
+                                            bool pan_active, float scroll_delta) noexcept -> CameraInput;
 
 class OrthographicCamera {
   public:

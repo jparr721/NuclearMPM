@@ -33,7 +33,10 @@ Add headless camera tests for the pure mapping helper:
 - right/down left-drag produces positive horizontal/vertical orbit input;
 - right/down middle-drag preserves negative-horizontal/positive-vertical pan input;
 - scroll scaling remains unchanged;
-- inactive buttons produce no drag input.
+- inactive buttons produce no drag input;
+- mapped orbit and pan deltas move representative projected scene points in the same screen direction as the cursor.
+
+The projection-level assertions compose the mapping helper with the real camera view/projection matrices, so the suite verifies user-visible motion rather than only checking intermediate signs.
 
 Follow red-green TDD: add the regression test first and confirm it fails before adding the helper and delegating visualizer input conversion to it. Then run the bounded camera tests and complete test suite. No interactive workbench or long simulation is required.
 

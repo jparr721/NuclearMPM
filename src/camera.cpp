@@ -83,6 +83,21 @@ auto filter_camera_input(const CameraInput &input, bool ui_wants_mouse) noexcept
     return ui_wants_mouse ? CameraInput{} : input;
 }
 
+auto map_pointer_camera_input(const Eigen::Vector2f &cursor_delta, bool orbit_active,
+                              bool pan_active, float scroll_delta) noexcept -> CameraInput {
+    CameraInput input;
+    if (orbit_active) {
+        input.orbit_x = cursor_delta.x() * 0.005F;
+        input.orbit_y = cursor_delta.y() * 0.005F;
+    }
+    if (pan_active) {
+        input.pan_x = -cursor_delta.x() * 0.001F;
+        input.pan_y = cursor_delta.y() * 0.001F;
+    }
+    input.dolly = scroll_delta * 0.15F;
+    return input;
+}
+
 OrthographicCamera::OrthographicCamera() { reset(DomainBounds{}); }
 
 auto OrthographicCamera::reset(const DomainBounds &bounds) -> void {

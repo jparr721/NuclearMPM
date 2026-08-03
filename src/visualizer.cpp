@@ -222,23 +222,20 @@ struct Visualizer::Impl {
         double cursor_x = 0.0;
         double cursor_y = 0.0;
         glfwGetCursorPos(window, &cursor_x, &cursor_y);
-        camera_input_value = CameraInput{};
+        Eigen::Vector2f cursor_delta = Eigen::Vector2f::Zero();
+        const bool orbit_active = cursor_initialized &&
+                                  glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+        const bool pan_active = cursor_initialized &&
+                                glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_PRESS;
         if (cursor_initialized) {
-            const float delta_x = static_cast<float>(cursor_x - previous_cursor_x);
-            const float delta_y = static_cast<float>(cursor_y - previous_cursor_y);
-            if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
-                camera_input_value.orbit_x = -delta_x * 0.005F;
-                camera_input_value.orbit_y = -delta_y * 0.005F;
-            }
-            if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_PRESS) {
-                camera_input_value.pan_x = -delta_x * 0.001F;
-                camera_input_value.pan_y = delta_y * 0.001F;
-            }
+            cursor_delta.x() = static_cast<float>(cursor_x - previous_cursor_x);
+            cursor_delta.y() = static_cast<float>(cursor_y - previous_cursor_y);
         }
+        camera_input_value = map_pointer_camera_input(cursor_delta, orbit_active, pan_active,
+                                                      static_cast<float>(scroll_delta));
         cursor_initialized = true;
         previous_cursor_x = cursor_x;
         previous_cursor_y = cursor_y;
-        camera_input_value.dolly = static_cast<float>(scroll_delta) * 0.15F;
         scroll_delta = 0.0;
 
         int framebuffer_width = 0;
