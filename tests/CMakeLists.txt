@@ -1,4 +1,8 @@
-add_executable(nuclear_mpm_tests smoke_test.cpp)
+add_executable(
+  nuclear_mpm_tests
+  smoke_test.cpp
+  math_test.cpp
+)
 target_link_libraries(nuclear_mpm_tests PRIVATE NuclearMPM::NuclearMPM Catch2::Catch2WithMain)
 
 include(Catch)
