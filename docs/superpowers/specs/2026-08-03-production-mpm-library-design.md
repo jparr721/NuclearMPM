@@ -133,7 +133,7 @@ A `MaterialTable<Dim>` will own validated material variants, and particles will 
 
 The fused P2G affine matrix will have a name reflecting what it is; it will not be called first Piola stress. P2G and G2P will share the same stencil implementation.
 
-The serial transfer path will be the reference implementation. Optional OpenMP P2G will use thread-local grids followed by deterministic reduction rather than unsynchronized shared writes. OpenMP pragmas will only be compiled when CMake finds and enables OpenMP.
+The serial transfer path will be the reference implementation. Optional OpenMP P2G will use a fixed number of partition-local accumulation grids followed by deterministic reduction rather than unsynchronized shared writes. Parallel scratch allocation will obey an explicit memory budget (64 MiB by default); the worker count will be reduced or execution will fall back to serial before exceeding that budget. OpenMP pragmas will only be compiled when CMake finds and enables OpenMP.
 
 ### Timestep policy
 
@@ -267,6 +267,7 @@ All routine tests must be bounded and small. No stress tests or long simulations
 - Sticky boundaries remove all contact velocity.
 - A small 2D and 3D block remains finite and stencil-valid for a small fixed number of substeps.
 - Serial and OpenMP paths agree within documented floating-point tolerance.
+- Parallel worker selection never exceeds the configured scratch-memory budget and falls back to serial when one additional partition would exceed it.
 - Switching between 2D and 3D preserves both sessions' simulation state.
 - Camera orbit, pan, dolly, reset, and projection math pass headless deterministic tests.
 - ImGui input capture prevents camera movement while interacting with controls.
@@ -300,6 +301,7 @@ All routine tests must be bounded and small. No stress tests or long simulations
 - No manual grid-index formulas exist outside `Grid`/`QuadraticStencil`.
 - No velocity clipping is used to maintain stencil validity.
 - No unsynchronized shared P2G writes exist.
+- Optional parallel execution has a tested scratch-memory ceiling and defaults to serial execution.
 - Isotropic deformation creates no artificial shear.
 - Liquid has no elastic shear response.
 - Public names describe their physical or algorithmic meaning accurately.
