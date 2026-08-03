@@ -75,6 +75,10 @@ TEST_CASE("simulation configuration validates numerical invariants", "[config]")
     invalid = config;
     invalid.boundaries.boundary_layers = 0;
     REQUIRE_THROWS_AS(nuclear_mpm::validate_simulation_config(invalid), std::invalid_argument);
+
+    invalid = config;
+    invalid.max_substeps_per_advance = 0;
+    REQUIRE_THROWS_AS(nuclear_mpm::validate_simulation_config(invalid), std::invalid_argument);
 }
 
 TEST_CASE("simulation configuration requires a material", "[config]") {

@@ -4,6 +4,7 @@
 #include "material.hpp"
 
 #include <cmath>
+#include <cstddef>
 #include <stdexcept>
 
 namespace nuclear_mpm {
@@ -13,6 +14,7 @@ struct SimulationConfig {
     int cells_per_axis = 64;
     Scalar max_time_step = Scalar{1.0e-4};
     Scalar cfl_factor = Scalar{0.4};
+    std::size_t max_substeps_per_advance = 1024;
     MaterialTable<Dim> materials;
     DomainBoundaries<Dim> boundaries;
 };
@@ -35,6 +37,9 @@ auto validate_simulation_config(const SimulationConfig<Dim> &config) -> void {
     }
     if (!std::isfinite(config.cfl_factor) || config.cfl_factor <= Scalar{0} || config.cfl_factor > Scalar{1}) {
         throw std::invalid_argument("cfl_factor must be finite and in (0, 1]");
+    }
+    if (config.max_substeps_per_advance == 0) {
+        throw std::invalid_argument("max_substeps_per_advance must be positive");
     }
     if (config.materials.empty()) { throw std::invalid_argument("at least one material must be registered"); }
     if (config.boundaries.boundary_layers <= 0 ||
