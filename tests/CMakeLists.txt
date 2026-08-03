@@ -1,0 +1,5 @@
+add_executable(nuclear_mpm_tests smoke_test.cpp)
+target_link_libraries(nuclear_mpm_tests PRIVATE NuclearMPM::NuclearMPM Catch2::Catch2WithMain)
+
+include(Catch)
+catch_discover_tests(nuclear_mpm_tests TEST_PREFIX "unit:")

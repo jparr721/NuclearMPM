@@ -116,5 +116,7 @@ femflow.log
 tmp/
 
 build/
+build-dev/
+build-sanitize/
 cc_build/
 compile_commands.json

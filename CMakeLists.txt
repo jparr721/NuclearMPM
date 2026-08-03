@@ -1,80 +1,97 @@
 cmake_minimum_required(VERSION 3.16...3.31)
-project(nuclear_mpm)
+project(nuclear_mpm VERSION 1.0.0 LANGUAGES C CXX)
 
-set(PROJECT_NAME_EXAMPLE ${PROJECT_NAME}_example)
-set(PROJECT_NAME_SOLVER ${PROJECT_NAME}_solver)
-set(PROJECT_NAME_VISUALIZER ${PROJECT_NAME}_visualizer)
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_BUILD_TYPE "Release")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-deprecated-enum-enum-conversion -Ofast -pthread")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-enum-enum-conversion -Ofast -pthread")
+
+option(NUCLEAR_MPM_BUILD_TESTS "Build NuclearMPM tests" ON)
+option(NUCLEAR_MPM_BUILD_WORKBENCH "Build the OpenGL workbench" ON)
+option(NUCLEAR_MPM_ENABLE_OPENMP "Enable the bounded OpenMP backend" OFF)
+option(NUCLEAR_MPM_ENABLE_SANITIZERS "Enable supported sanitizers" OFF)
+option(WITH_NCLR_SOLVER_VIZ "Build legacy solver playback support" OFF)
 
 include(FetchContent)
 
-set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
-
+set(EIGEN_BUILD_DOC OFF CACHE BOOL "" FORCE)
+set(EIGEN_BUILD_PKGCONFIG OFF CACHE BOOL "" FORCE)
+set(EIGEN_BUILD_TESTING OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
   eigen
   GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
   GIT_TAG 3.4.0
   GIT_SHALLOW TRUE
 )
-FetchContent_Declare(
-  glfw
-  GIT_REPOSITORY https://github.com/glfw/glfw.git
-  GIT_TAG 3.4
-  GIT_SHALLOW TRUE
+FetchContent_MakeAvailable(eigen)
+
+add_library(nuclear_mpm INTERFACE)
+add_library(NuclearMPM::NuclearMPM ALIAS nuclear_mpm)
+target_compile_features(nuclear_mpm INTERFACE cxx_std_17)
+target_include_directories(
+  nuclear_mpm
+  INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
 )
-FetchContent_MakeAvailable(eigen glfw)
-
-add_library(glad_gl_core_41 STATIC vendor/glad/src/gl.c)
-target_include_directories(glad_gl_core_41 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/vendor/glad/include)
-find_package(OpenGL REQUIRED)
-
-if (WITH_NCLR_DEBUG)
-  add_compile_definitions(NCLR_DEBUG)
-endif()
+target_link_libraries(nuclear_mpm INTERFACE Eigen3::Eigen)
 
 add_subdirectory(flags)
 
-add_library(${PROJECT_NAME_VISUALIZER} src/visualizer.cpp)
-target_include_directories(${PROJECT_NAME_VISUALIZER} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_link_libraries(${PROJECT_NAME_VISUALIZER} PRIVATE glfw glad_gl_core_41 OpenGL::GL)
+add_executable(nuclear_mpm_solver src/solver.cpp)
+target_link_libraries(nuclear_mpm_solver PRIVATE NuclearMPM::NuclearMPM flags::flags)
 
-add_executable(${PROJECT_NAME_EXAMPLE} src/example.cpp)
-target_link_libraries(${PROJECT_NAME_EXAMPLE} PRIVATE Eigen3::Eigen ${PROJECT_NAME_VISUALIZER})
+if(NUCLEAR_MPM_BUILD_WORKBENCH OR WITH_NCLR_SOLVER_VIZ)
+  set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+  set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+  set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+  set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
+  FetchContent_Declare(
+    glfw
+    GIT_REPOSITORY https://github.com/glfw/glfw.git
+    GIT_TAG 3.4
+    GIT_SHALLOW TRUE
+  )
+  FetchContent_MakeAvailable(glfw)
 
-add_executable(${PROJECT_NAME_SOLVER} src/solver.cpp)
-target_link_libraries(${PROJECT_NAME_SOLVER} PRIVATE Eigen3::Eigen flags)
+  add_library(glad_gl_core_41 STATIC vendor/glad/src/gl.c)
+  target_include_directories(glad_gl_core_41 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/vendor/glad/include)
+  find_package(OpenGL REQUIRED)
 
-if (WITH_NCLR_SOLVER_VIZ)
-  target_compile_definitions(${PROJECT_NAME_SOLVER} PRIVATE NCLR_SOLVER_VIZ)
-  target_link_libraries(${PROJECT_NAME_SOLVER} PRIVATE ${PROJECT_NAME_VISUALIZER})
+  add_library(nuclear_mpm_visualizer src/visualizer.cpp)
+  target_include_directories(nuclear_mpm_visualizer PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+  target_link_libraries(nuclear_mpm_visualizer PRIVATE glfw glad_gl_core_41 OpenGL::GL)
+
+  if(NUCLEAR_MPM_BUILD_WORKBENCH)
+    add_executable(nuclear_mpm_example src/example.cpp)
+    target_link_libraries(nuclear_mpm_example PRIVATE NuclearMPM::NuclearMPM nuclear_mpm_visualizer)
+  endif()
+
+  if(WITH_NCLR_SOLVER_VIZ)
+    target_compile_definitions(nuclear_mpm_solver PRIVATE NCLR_SOLVER_VIZ)
+    target_link_libraries(nuclear_mpm_solver PRIVATE nuclear_mpm_visualizer)
+  endif()
 endif()
 
-option(NCLR_BUILD_TESTS "Build NuclearMPM smoke tests" ON)
-if (NCLR_BUILD_TESTS)
+if(NUCLEAR_MPM_BUILD_TESTS)
   enable_testing()
 
-  set(PROJECT_NAME_EXAMPLE_3D_COMPILE ${PROJECT_NAME_EXAMPLE}_3d_compile)
-  add_library(${PROJECT_NAME_EXAMPLE_3D_COMPILE} OBJECT EXCLUDE_FROM_ALL src/example.cpp)
-  target_compile_definitions(${PROJECT_NAME_EXAMPLE_3D_COMPILE} PRIVATE NCLR_EXAMPLE_DIMENSION=3)
-  target_link_libraries(${PROJECT_NAME_EXAMPLE_3D_COMPILE} PRIVATE Eigen3::Eigen ${PROJECT_NAME_VISUALIZER})
-
-  add_test(
-    NAME example_3d_compile
-    COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target ${PROJECT_NAME_EXAMPLE_3D_COMPILE}
+  set(CATCH_INSTALL_DOCS OFF CACHE BOOL "" FORCE)
+  set(CATCH_INSTALL_EXTRAS OFF CACHE BOOL "" FORCE)
+  FetchContent_Declare(
+    Catch2
+    GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+    GIT_TAG v3.8.1
+    GIT_SHALLOW TRUE
   )
-  add_test(NAME solver_help COMMAND $<TARGET_FILE:${PROJECT_NAME_SOLVER}> --help)
+  FetchContent_MakeAvailable(Catch2)
+  add_subdirectory(tests)
+
+  add_test(NAME solver_help COMMAND $<TARGET_FILE:nuclear_mpm_solver> --help)
   set_tests_properties(solver_help PROPERTIES PASS_REGULAR_EXPRESSION "NuclearMPM headless solver")
   add_test(
     NAME solver_one_step
-    COMMAND $<TARGET_FILE:${PROJECT_NAME_SOLVER}> --steps 1 --cube0-x 0.4 --cube0-y 0.6
+    COMMAND $<TARGET_FILE:nuclear_mpm_solver> --steps 1 --cube0-x 0.4 --cube0-y 0.6
   )
   set_tests_properties(solver_one_step PROPERTIES PASS_REGULAR_EXPRESSION "Simulation done")
 endif()
