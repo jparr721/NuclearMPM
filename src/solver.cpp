@@ -6,7 +6,7 @@
 #include <iostream>
 #include <memory>
 #ifdef NCLR_SOLVER_VIZ
-#include "taichi.h"
+#include "visualizer.h"
 #endif
 
 namespace fs = std::filesystem;
@@ -168,7 +168,10 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
 
-    if (help || !steps && !cubes && !cube_res && !dim && !E && !nu && !gravity && !material_model) { help_msg(); }
+    if (help || argc == 1) {
+        help_msg();
+        return EXIT_SUCCESS;
+    }
 
     auto model = nclr::MaterialModel::kJelly;
     if (material_model == "snow") {
@@ -187,20 +190,17 @@ int main(int argc, char **argv) {
         std::vector<std::vector<nclr::Cell<2>>> cells;
         solve_mpm<2>(sim, steps.value_or(1000), dump, states, cells);
 #ifdef NCLR_SOLVER_VIZ
-        taichi::GUI gui("Results", kWindowSize, kWindowSize);
-        auto &canvas = gui.get_canvas();
+        nclr::viz::Visualizer visualizer("Results", kWindowSize, kWindowSize);
         for (const auto &state : states) {
-            // Clear background
-            canvas.clear(0x112F41);
+            if (visualizer.should_close()) { break; }
 
-            // Boundary Condition Box
-            canvas.rect(taichi::Vector2(0.04), taichi::Vector2(0.96)).radius(2).color(0x4FB99F).close();
+            auto points = std::vector<nclr::viz::Point>{};
+            points.reserve(state.size());
             for (const auto &particle : state) {
-                // Load the particle
-                canvas.circle(taichi::Vector2(particle.x)).radius(2).color(particle.c);
+                points.push_back(
+                        {particle.x(0), particle.x(1), static_cast<std::uint32_t>(particle.c)});
             }
-
-            gui.update();
+            visualizer.draw(points);
         }
 #endif
 

@@ -1,10 +1,15 @@
 #include "nclr.h"
-#include "taichi.h"// Packaged in the repo, not required for embedding
+#include "visualizer.h"
+
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 // How many dimensions to run the sim in (2 or 3)
-constexpr int kDimension = 2;
+#ifndef NCLR_EXAMPLE_DIMENSION
+#define NCLR_EXAMPLE_DIMENSION 2
+#endif
+constexpr int kDimension = NCLR_EXAMPLE_DIMENSION;
 
 // The resolution of the cube meshes.
 constexpr int kResolution = 50;
@@ -21,10 +26,24 @@ constexpr nclr::real frame_dt = 1e-3f;
 // The color to paint the points
 constexpr int kColor = 0xED553B;
 
+template<int dimension>
+auto to_points(const std::vector<nclr::Particle<dimension>> &particles) -> std::vector<nclr::viz::Point> {
+    auto points = std::vector<nclr::viz::Point>{};
+    points.reserve(particles.size());
+    for (const auto &particle : particles) {
+        if constexpr (dimension == 3) {
+            const nclr::Vector<nclr::real, 2> point = nclr::pt_3d_to_2d(particle.x) / 4;
+            points.push_back({point(0), point(1), static_cast<std::uint32_t>(particle.c)});
+        } else {
+            points.push_back({particle.x(0), particle.x(1), static_cast<std::uint32_t>(particle.c)});
+        }
+    }
+    return points;
+}
+
 int main() {
     using namespace nclr;
-    taichi::GUI gui("Nuclear MPM", kWindowSize, kWindowSize);
-    auto &canvas = gui.get_canvas();
+    viz::Visualizer visualizer("Nuclear MPM", kWindowSize, kWindowSize);
 
     std::vector<Particle<kDimension>> particles;
 
@@ -38,7 +57,7 @@ int main() {
     // Move the cube to the bottom of the screen so it doesn't bounce
     for (auto &pos : cube_particles) {
         pos(1) -= 0.35;
-        particles.emplace_back(Particle<2>(pos, kColor));
+        particles.emplace_back(Particle<kDimension>(pos, kColor));
     }
 
     // Allocate a mutable simulation object, uncomment each for surprise!
@@ -46,39 +65,11 @@ int main() {
     auto sim = std::make_unique<MPMSimulation<kDimension>>(particles, MaterialModel::kSnow);
     /* auto sim = std::make_unique<MPMSimulation<kDimension>>(particles, MaterialModel::kJelly); */
 
-    // Main Loop
-    for (uint64_t frame = 0;; ++frame) {
-
-        // Advance simulation
+    for (std::uint64_t frame = 0; !visualizer.should_close(); ++frame) {
         sim->advance();
 
-        // Visualize frame
-        if (frame % int(frame_dt / dt) == 0) {
+        if (frame % static_cast<int>(frame_dt / dt) != 0) { continue; }
 
-            // Clear background
-            canvas.clear(0x112F41);
-
-            // Boundary Condition Box
-            canvas.rect(taichi::Vector2(0.04), taichi::Vector2(0.96)).radius(2).color(0x4FB99F).close();
-
-            if constexpr (kDimension == 3) {
-                for (const auto &p : sim->particles()) {
-                    // Scale the values coming out of the transform to 0-1 (your mileage _will_ vary)
-                    const Vector<real, 2> pt = pt_3d_to_2d(p.x) / 4;
-
-                    // Convert the point to a taichi primitive.
-                    const auto point = taichi::Vector2(pt);
-
-                    // Draw this circle
-                    canvas.circle(point).radius(2).color(p.c);
-                }
-            } else {
-                // Particles
-                for (const auto &p : sim->particles()) { canvas.circle(taichi::Vector2(p.x)).radius(2).color(p.c); }
-            }
-
-            // Update image
-            gui.update();
-        }
+        visualizer.draw(to_points(sim->particles()));
     }
 }

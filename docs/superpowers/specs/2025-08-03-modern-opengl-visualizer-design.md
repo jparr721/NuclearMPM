@@ -8,9 +8,8 @@ Replace the bundled 30,000-line Taichi GUI header with a focused particle visual
 
 - Request an OpenGL 4.1 Core context, the newest OpenGL version supported by macOS.
 - Use GLSL 410 Core vertex and fragment shaders.
-- Fetch pinned GLFW 3.4 and GLAD 2.0.8 sources with CMake `FetchContent`.
-- Generate a GLAD loader for `gl:core=4.1` during the build.
-- Continue fetching pinned Eigen 3.4.0 with CMake.
+- Fetch pinned GLFW 3.4 and Eigen 3.4.0 sources with CMake `FetchContent`.
+- Store the reproducibly generated GLAD 2.0.8 `gl:core=4.1` loader under `vendor/glad`, avoiding a build-time Python/Jinja2 dependency.
 - Keep `flags` as a Git submodule initialized by `just build`.
 - Remove direct X11 discovery and linking; GLFW owns platform-specific window integration.
 
@@ -68,13 +67,13 @@ When `WITH_NCLR_SOLVER_VIZ=ON`, `src/solver.cpp` converts saved two-dimensional 
 
 ## Build Structure
 
-CMake creates a `nuclear_mpm_visualizer` library from `src/visualizer.cpp`, links it privately to GLFW, generated GLAD, and `OpenGL::GL`, and exposes `src/visualizer.h` to consumers. `nuclear_mpm_example` always links the visualizer. `nuclear_mpm_solver` links it only when solver visualization is enabled.
+CMake creates a static `glad_gl_core_41` target from the generated source under `vendor/glad`. It creates a `nuclear_mpm_visualizer` library from `src/visualizer.cpp`, links it privately to GLFW, GLAD, and `OpenGL::GL`, and exposes `src/visualizer.h` to consumers. `nuclear_mpm_example` always links the visualizer. `nuclear_mpm_solver` links it only when solver visualization is enabled.
 
-Raise the CMake minimum to 3.16 for modern `FetchContent` and GLAD generation. GLFW examples, tests, and documentation remain disabled.
+Raise the CMake minimum to 3.16 for modern `FetchContent`. GLFW examples, tests, and documentation remain disabled.
 
 ## Removal and Documentation
 
-Delete `src/taichi.h` and remove every Taichi include and API reference. Update the README example and dependency/build notes to describe the GLFW/OpenGL renderer and CMake-fetched dependencies.
+Delete `src/taichi.h` and remove every Taichi include and API reference. Update the README example and dependency/build notes to describe the GLFW/OpenGL renderer, CMake-fetched Eigen/GLFW dependencies, and bundled generated GLAD loader.
 
 ## Error Handling
 
@@ -83,9 +82,10 @@ Visualizer construction throws `std::runtime_error` when GLFW initialization, wi
 ## Verification
 
 - Configure from a clean `build/` directory without a system Eigen installation.
-- Confirm CMake fetches Eigen, GLFW, and GLAD and initializes `flags` through `just build`.
+- Confirm CMake fetches Eigen and GLFW, compiles the bundled GLAD loader, and initializes `flags` through `just build`.
 - Build both executables on Apple Silicon without compiling `taichi.h`.
-- Run the solver help command as a non-GUI smoke test.
+- Compile-check the example in both two- and three-dimensional modes.
+- Run solver help and a one-step simulation as non-GUI smoke tests through CTest.
 - Launch the example long enough to create its OpenGL 4.1 window and render frames, then close it.
 - Run `just build` again to verify incremental behavior.
 - Confirm no Taichi references remain in source, CMake, or README.
