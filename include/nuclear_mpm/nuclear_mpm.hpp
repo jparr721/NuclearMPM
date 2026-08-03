@@ -1,5 +1,8 @@
 #pragma once
 
+#include "boundary.hpp"
+#include "config.hpp"
+#include "diagnostics.hpp"
 #include "grid.hpp"
 #include "material.hpp"
 #include "math.hpp"

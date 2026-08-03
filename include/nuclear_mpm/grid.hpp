@@ -58,6 +58,20 @@ class Grid {
         return nodes_.at(flatten(coordinate_value));
     }
 
+    template<typename Callback>
+    auto for_each_node(Callback &&callback) -> void {
+        for (std::size_t flat = 0; flat < nodes_.size(); ++flat) {
+            callback(coordinate(flat), nodes_[flat]);
+        }
+    }
+
+    template<typename Callback>
+    auto for_each_node(Callback &&callback) const -> void {
+        for (std::size_t flat = 0; flat < nodes_.size(); ++flat) {
+            callback(coordinate(flat), nodes_[flat]);
+        }
+    }
+
     auto reset() noexcept -> void {
         for (auto &node_value : nodes_) { node_value = GridNode<Dim>{}; }
     }
