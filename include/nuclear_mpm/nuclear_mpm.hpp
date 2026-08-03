@@ -1,6 +1,7 @@
 #pragma once
 
 #include "grid.hpp"
+#include "material.hpp"
 #include "math.hpp"
 #include "particle.hpp"
 #include "sampling.hpp"
