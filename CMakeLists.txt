@@ -48,8 +48,12 @@ endif()
 
 add_subdirectory(flags)
 
+add_library(nuclear_mpm_cli src/solver_cli.cpp src/snapshot_io.cpp)
+target_include_directories(nuclear_mpm_cli PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(nuclear_mpm_cli PUBLIC NuclearMPM::NuclearMPM PRIVATE flags::flags)
+
 add_executable(nuclear_mpm_solver src/solver.cpp)
-target_link_libraries(nuclear_mpm_solver PRIVATE NuclearMPM::NuclearMPM flags::flags)
+target_link_libraries(nuclear_mpm_solver PRIVATE nuclear_mpm_cli)
 
 if(NUCLEAR_MPM_BUILD_WORKBENCH OR WITH_NCLR_SOLVER_VIZ)
   set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
@@ -98,10 +102,19 @@ if(NUCLEAR_MPM_BUILD_TESTS)
   add_subdirectory(tests)
 
   add_test(NAME solver_help COMMAND $<TARGET_FILE:nuclear_mpm_solver> --help)
-  set_tests_properties(solver_help PROPERTIES PASS_REGULAR_EXPRESSION "NuclearMPM headless solver")
+  set_tests_properties(solver_help PROPERTIES PASS_REGULAR_EXPRESSION "NuclearMPM solver")
   add_test(
-    NAME solver_one_step
-    COMMAND $<TARGET_FILE:nuclear_mpm_solver> --steps 1 --cube0-x 0.4 --cube0-y 0.6
+    NAME solver_2d_one_step
+    COMMAND $<TARGET_FILE:nuclear_mpm_solver>
+      --dimension 2 --material solid --box-min 0.4,0.4 --box-max 0.6,0.6
+      --points-per-axis 2,2 --cells 8 --duration 0.0001 --max-dt 0.0001
   )
-  set_tests_properties(solver_one_step PROPERTIES PASS_REGULAR_EXPRESSION "Simulation done")
+  add_test(
+    NAME solver_3d_one_step
+    COMMAND $<TARGET_FILE:nuclear_mpm_solver>
+      --dimension 3 --material solid --box-min 0.4,0.4,0.4 --box-max 0.6,0.6,0.6
+      --points-per-axis 2,2,2 --cells 8 --duration 0.0001 --max-dt 0.0001
+  )
+  set_tests_properties(solver_2d_one_step solver_3d_one_step
+    PROPERTIES PASS_REGULAR_EXPRESSION "Simulation complete")
 endif()
