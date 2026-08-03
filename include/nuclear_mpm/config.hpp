@@ -2,6 +2,7 @@
 
 #include "boundary.hpp"
 #include "material.hpp"
+#include "parallel.hpp"
 
 #include <cmath>
 #include <cstddef>
@@ -15,6 +16,7 @@ struct SimulationConfig {
     Scalar max_time_step = Scalar{1.0e-4};
     Scalar cfl_factor = Scalar{0.4};
     std::size_t max_substeps_per_advance = 1024;
+    ParallelConfig parallel;
     MaterialTable<Dim> materials;
     DomainBoundaries<Dim> boundaries;
 };
@@ -41,6 +43,7 @@ auto validate_simulation_config(const SimulationConfig<Dim> &config) -> void {
     if (config.max_substeps_per_advance == 0) {
         throw std::invalid_argument("max_substeps_per_advance must be positive");
     }
+    validate_parallel_config(config.parallel);
     if (config.materials.empty()) { throw std::invalid_argument("at least one material must be registered"); }
     if (config.boundaries.boundary_layers <= 0 ||
         config.boundaries.boundary_layers * 2 > config.cells_per_axis) {

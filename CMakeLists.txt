@@ -36,6 +36,16 @@ target_include_directories(
 )
 target_link_libraries(nuclear_mpm INTERFACE Eigen3::Eigen)
 
+if(NUCLEAR_MPM_ENABLE_OPENMP)
+  find_package(OpenMP)
+  if(OpenMP_CXX_FOUND)
+    target_link_libraries(nuclear_mpm INTERFACE OpenMP::OpenMP_CXX)
+    target_compile_definitions(nuclear_mpm INTERFACE NUCLEAR_MPM_HAS_OPENMP=1)
+  else()
+    message(WARNING "NUCLEAR_MPM_ENABLE_OPENMP is ON, but OpenMP was not found; using serial execution")
+  endif()
+endif()
+
 add_subdirectory(flags)
 
 add_executable(nuclear_mpm_solver src/solver.cpp)

@@ -7,11 +7,16 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <exception>
 #include <limits>
 #include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
+
+#ifdef NUCLEAR_MPM_HAS_OPENMP
+#include <omp.h>
+#endif
 
 namespace nuclear_mpm {
 
@@ -152,27 +157,75 @@ class Simulation {
         }
     }
 
-    auto particle_to_grid(Scalar time_step) -> void {
-        for (std::size_t index = 0; index < particles_.size(); ++index) {
-            const auto &particle = particles_[index];
-            try {
-                const auto &material = config_.materials.at(particle.material_id);
-                const Matrix<Dim> stress_impulse =
-                        -time_step * particle.reference_volume * Scalar{4} * inverse_cell_size_ *
-                        inverse_cell_size_ * kirchhoff_stress(material, particle);
-                const Matrix<Dim> affine_momentum = stress_impulse + particle.mass * particle.affine_velocity;
-                const QuadraticStencil<Dim> stencil(particle.position, inverse_cell_size_, grid_.nodes_per_axis());
+    auto accumulate_particle_to_grid(std::size_t index, Scalar time_step, Grid<Dim> &target_grid) const -> void {
+        const auto &particle = particles_[index];
+        try {
+            const auto &material = config_.materials.at(particle.material_id);
+            const Matrix<Dim> stress_impulse =
+                    -time_step * particle.reference_volume * Scalar{4} * inverse_cell_size_ *
+                    inverse_cell_size_ * kirchhoff_stress(material, particle);
+            const Matrix<Dim> affine_momentum = stress_impulse + particle.mass * particle.affine_velocity;
+            const QuadraticStencil<Dim> stencil(particle.position, inverse_cell_size_, target_grid.nodes_per_axis());
 
-                stencil.for_each_node([&](const StencilNode<Dim> &stencil_node) {
-                    auto &grid_node = grid_.node(stencil_node.index);
-                    grid_node.mass += stencil_node.weight * particle.mass;
-                    grid_node.momentum +=
-                            stencil_node.weight *
-                            (particle.mass * particle.velocity + affine_momentum * stencil_node.physical_displacement);
-                });
-            } catch (const std::exception &error) {
-                throw SimulationError(SimulationPhase::ParticleToGrid, error.what(), index);
+            stencil.for_each_node([&](const StencilNode<Dim> &stencil_node) {
+                auto &grid_node = target_grid.node(stencil_node.index);
+                grid_node.mass += stencil_node.weight * particle.mass;
+                grid_node.momentum +=
+                        stencil_node.weight *
+                        (particle.mass * particle.velocity + affine_momentum * stencil_node.physical_displacement);
+            });
+        } catch (const std::exception &error) {
+            throw SimulationError(SimulationPhase::ParticleToGrid, error.what(), index);
+        }
+    }
+
+    auto particle_to_grid(Scalar time_step) -> void {
+#ifdef NUCLEAR_MPM_HAS_OPENMP
+        if (config_.parallel.enabled && particles_.size() > 1) {
+            const std::size_t grid_bytes = grid_.node_count() * sizeof(GridNode<Dim>);
+            const std::size_t worker_count =
+                    select_parallel_worker_count(grid_bytes, config_.parallel.max_workers,
+                                                 config_.parallel.scratch_memory_budget_bytes);
+            if (worker_count > 1) {
+                std::vector<Grid<Dim>> partitions;
+                partitions.reserve(worker_count);
+                for (std::size_t worker = 0; worker < worker_count; ++worker) {
+                    partitions.emplace_back(config_.cells_per_axis);
+                }
+
+                std::exception_ptr failure;
+#pragma omp parallel num_threads(static_cast<int>(worker_count))
+                {
+                    const auto worker = static_cast<std::size_t>(omp_get_thread_num());
+#pragma omp for schedule(static)
+                    for (std::ptrdiff_t raw_index = 0;
+                         raw_index < static_cast<std::ptrdiff_t>(particles_.size()); ++raw_index) {
+                        try {
+                            accumulate_particle_to_grid(static_cast<std::size_t>(raw_index), time_step,
+                                                        partitions[worker]);
+                        } catch (...) {
+#pragma omp critical(nuclear_mpm_p2g_failure)
+                            {
+                                if (!failure) { failure = std::current_exception(); }
+                            }
+                        }
+                    }
+                }
+                if (failure) { std::rethrow_exception(failure); }
+
+                for (const auto &partition : partitions) {
+                    partition.for_each_node([&](const Index<Dim> &coordinate, const GridNode<Dim> &source) {
+                        auto &target = grid_.node(coordinate);
+                        target.mass += source.mass;
+                        target.momentum += source.momentum;
+                    });
+                }
+                return;
             }
+        }
+#endif
+        for (std::size_t index = 0; index < particles_.size(); ++index) {
+            accumulate_particle_to_grid(index, time_step, grid_);
         }
     }
 

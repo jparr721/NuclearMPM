@@ -6,6 +6,7 @@
 #include "grid.hpp"
 #include "material.hpp"
 #include "math.hpp"
+#include "parallel.hpp"
 #include "particle.hpp"
 #include "sampling.hpp"
 #include "simulation.hpp"
