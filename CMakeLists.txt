@@ -59,6 +59,10 @@ add_library(nuclear_mpm_camera src/camera.cpp)
 target_include_directories(nuclear_mpm_camera PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(nuclear_mpm_camera PUBLIC NuclearMPM::NuclearMPM)
 
+add_library(nuclear_mpm_session src/simulation_session.cpp)
+target_include_directories(nuclear_mpm_session PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(nuclear_mpm_session PUBLIC NuclearMPM::NuclearMPM nuclear_mpm_camera)
+
 if(NUCLEAR_MPM_BUILD_WORKBENCH OR WITH_NCLR_SOLVER_VIZ)
   set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
   set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -81,8 +85,36 @@ if(NUCLEAR_MPM_BUILD_WORKBENCH OR WITH_NCLR_SOLVER_VIZ)
   target_link_libraries(nuclear_mpm_visualizer PRIVATE nuclear_mpm_camera glfw glad_gl_core_41 OpenGL::GL)
 
   if(NUCLEAR_MPM_BUILD_WORKBENCH)
+    FetchContent_Declare(
+      imgui
+      GIT_REPOSITORY https://github.com/ocornut/imgui.git
+      GIT_TAG v1.91.8
+      GIT_SHALLOW TRUE
+    )
+    FetchContent_MakeAvailable(imgui)
+
+    add_library(
+      nuclear_mpm_imgui
+      ${imgui_SOURCE_DIR}/imgui.cpp
+      ${imgui_SOURCE_DIR}/imgui_draw.cpp
+      ${imgui_SOURCE_DIR}/imgui_tables.cpp
+      ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+      ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
+      ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
+    )
+    target_include_directories(nuclear_mpm_imgui PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends)
+    target_link_libraries(nuclear_mpm_imgui PUBLIC glfw OpenGL::GL)
+
+    add_library(nuclear_mpm_workbench src/simulation_workbench.cpp)
+    target_include_directories(nuclear_mpm_workbench PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_link_libraries(
+      nuclear_mpm_workbench
+      PUBLIC nuclear_mpm_session nuclear_mpm_visualizer
+      PRIVATE nuclear_mpm_imgui
+    )
+
     add_executable(nuclear_mpm_example src/example.cpp)
-    target_link_libraries(nuclear_mpm_example PRIVATE NuclearMPM::NuclearMPM nuclear_mpm_visualizer)
+    target_link_libraries(nuclear_mpm_example PRIVATE nuclear_mpm_workbench)
   endif()
 
   if(WITH_NCLR_SOLVER_VIZ)
