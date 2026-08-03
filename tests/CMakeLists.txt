@@ -7,6 +7,8 @@ add_executable(
   particle_sampling_test.cpp
   material_test.cpp
   boundary_test.cpp
+  transfer_test.cpp
+  simulation_test.cpp
 )
 target_link_libraries(nuclear_mpm_tests PRIVATE NuclearMPM::NuclearMPM Catch2::Catch2WithMain)
 

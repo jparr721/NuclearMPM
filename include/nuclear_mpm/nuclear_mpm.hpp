@@ -8,6 +8,7 @@
 #include "math.hpp"
 #include "particle.hpp"
 #include "sampling.hpp"
+#include "simulation.hpp"
 #include "stencil.hpp"
 #include "types.hpp"
 
