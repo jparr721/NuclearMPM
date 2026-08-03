@@ -20,6 +20,12 @@ target_link_libraries(
   PRIVATE NuclearMPM::NuclearMPM nuclear_mpm_cli nuclear_mpm_camera nuclear_mpm_session
           Catch2::Catch2WithMain
 )
+nuclear_mpm_enable_warnings(nuclear_mpm_tests)
+nuclear_mpm_enable_sanitizers(nuclear_mpm_tests)
 
-include(Catch)
-catch_discover_tests(nuclear_mpm_tests TEST_PREFIX "unit:")
+if(NUCLEAR_MPM_ENABLE_SANITIZERS)
+  add_test(NAME unit_all_sanitized COMMAND nuclear_mpm_tests)
+else()
+  include(Catch)
+  catch_discover_tests(nuclear_mpm_tests TEST_PREFIX "unit:")
+endif()

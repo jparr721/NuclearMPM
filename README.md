@@ -1,12 +1,13 @@
 # NuclearMPM
 
-NuclearMPM is a high-efficiency material point method implementation using CPU-bound parallelism. The simulation is header-based (`src/nclr.h` and `src/nclr_math.h`) so it can be embedded without the example renderer.
+NuclearMPM is a correctness-first C++17 implementation of the Moving Least Squares Material Point Method (MLS-MPM) with APIC transfers. The core library supports real 2D and 3D simulations, fixed-corotated solids, elastoplastic snow, weakly compressible liquids, configurable boundaries, CFL-controlled substeps, diagnostics, and optional memory-bounded OpenMP transfers.
 
-The repository also includes:
+The repository also provides:
 
-- `nuclear_mpm_example`: an interactive OpenGL 4.1 particle visualization.
-- `nuclear_mpm_solver`: a headless solver for generating simulation data.
-- `src/visualizer.h`: the small GLFW/OpenGL interface used by the examples.
+- `nuclear_mpm_solver`: a validated 2D/3D command-line solver with versioned snapshots.
+- `nuclear_mpm_example`: a Dear ImGui simulation workbench with persistent 2D/3D sessions.
+- A native OpenGL 4.1 renderer with orthographic 2D and perspective 3D cameras.
+- Bounded Catch2 tests for numerical, topology, transfer, CLI, I/O, camera, and session invariants.
 
 ## Requirements
 
@@ -14,104 +15,164 @@ The repository also includes:
 - CMake 3.16 or newer
 - Ninja
 - Git
-- OpenGL development libraries
-- Just (optional; used by the recommended `just` workflow)
+- OpenGL development libraries for the optional workbench
+- Just (optional)
 
-CMake fetches pinned Eigen 3.4.0 and GLFW 3.4 sources automatically. The generated GLAD 2.0.8 OpenGL 4.1 loader is stored in `vendor/glad`, so builds do not require Python or a GLAD generator.
+CMake fetches pinned Eigen 3.4.0, Catch2 3.8.1, GLFW 3.4, and Dear ImGui 1.91.8 sources. The generated GLAD 2.0.8 OpenGL 4.1 loader is stored in `vendor/glad`.
 
-On Ubuntu or Pop!_OS, the system dependencies can be installed with:
-
-```bash
-sudo apt update
-sudo apt install -y build-essential cmake ninja-build libgl1-mesa-dev xorg-dev
-```
-
-Install Just from your distribution package or with `cargo install just`. The direct CMake workflow below does not require Just.
-
-On macOS, install the build tools with Homebrew; OpenGL is provided by the system framework:
-
-```bash
-brew install cmake ninja just
-```
-
-## Building and Running with Just
+## Build and Test
 
 ```bash
 just build
+just test
+```
+
+Or use CMake directly:
+
+```bash
+cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+
+cmake -S . -B build-dev -GNinja \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DNUCLEAR_MPM_BUILD_TESTS=ON \
+  -DNUCLEAR_MPM_BUILD_WORKBENCH=OFF
+cmake --build build-dev --target nuclear_mpm_tests nuclear_mpm_solver
+ctest --test-dir build-dev --output-on-failure
+```
+
+Routine validation is intentionally bounded; the test suite does not run stress or endurance simulations.
+
+### Build options
+
+| Option | Default | Purpose |
+|---|---:|---|
+| `NUCLEAR_MPM_BUILD_TESTS` | `ON` | Build Catch2 tests and CLI smoke tests |
+| `NUCLEAR_MPM_BUILD_WORKBENCH` | `ON` | Build GLFW/OpenGL/Dear ImGui workbench |
+| `NUCLEAR_MPM_ENABLE_OPENMP` | `OFF` | Enable optional partitioned P2G transfers when OpenMP is available |
+| `NUCLEAR_MPM_ENABLE_SANITIZERS` | `OFF` | Enable AddressSanitizer and UndefinedBehaviorSanitizer on supported compilers |
+
+AppleClang builds use UBSan alone because its arm64 macOS ASan runtime can hang during dynamic-shadow initialization; Clang and GCC platforms use combined ASan and UBSan.
+
+Parallel execution remains opt-in and serial execution is the reference. Parallel scratch storage is capped at 64 MiB by default; worker count falls back before exceeding that budget.
+
+## Interactive Workbench
+
+```bash
 just run
 ```
 
-`just build` initializes the `flags` submodule, creates `build/`, configures with `cmake -GNinja ..`, and runs Ninja. `just run` builds and launches `build/nuclear_mpm_example`.
+The workbench owns separate persistent 2D and 3D simulations. Switching dimensions does not discard either session's particles, elapsed time, pause state, or camera.
 
-Run the compile and solver smoke tests with:
+Controls include:
 
-```bash
-ctest --test-dir build --output-on-failure
-```
+- Run/pause, single step, and simulation reset
+- Live 2D/3D switching
+- Solid, snow, and liquid scene presets
+- Grid resolution, particle sampling, density, gravity, CFL, and timestep controls
+- Per-face slip, sticky, and outflow boundaries
+- Live mass, speed, deformation, substep, and outflow diagnostics
 
-Remove generated build output with:
+Camera controls:
 
-```bash
-just clean
-```
+- **2D:** middle-drag to pan, scroll to zoom
+- **3D:** left-drag to orbit, middle-drag to pan, scroll to dolly
 
-## Building Directly
-
-```bash
-mkdir -p build
-cd build
-cmake -GNinja ..
-ninja
-```
-
-Enable assertions and optional visualization playback in the solver with:
-
-```bash
-cmake -GNinja -DWITH_NCLR_DEBUG=ON -DWITH_NCLR_SOLVER_VIZ=ON ..
-ninja
-```
-
-## OpenGL Visualizer
-
-The example renderer requests an OpenGL 4.1 Core context and uses GLSL 410 vertex and fragment shaders. Particle positions are uploaded through a dynamic VBO and rendered as points; the simulation boundary is rendered as a line loop. Close the window or press Escape to stop the example.
-
-Simulation code only passes renderer-neutral values:
-
-```cpp
-#include "visualizer.h"
-
-nclr::viz::Visualizer visualizer("Nuclear MPM", 800, 800);
-std::vector<nclr::viz::Point> points{
-        {0.5F, 0.5F, 0xED553B},
-};
-
-while (!visualizer.should_close()) {
-    visualizer.draw(points);
-}
-```
+Camera input is disabled while Dear ImGui captures the mouse.
 
 ## Headless Solver
 
-Show the available options:
+Show all arguments:
 
 ```bash
 ./build/nuclear_mpm_solver --help
 ```
 
-Run a sample simulation and dump its states:
+Run one short 2D snow simulation and write a versioned snapshot:
 
 ```bash
 ./build/nuclear_mpm_solver \
-  --dump \
-  --steps 4000 \
-  --cube0-x 0.4 \
-  --cube0-y 0.6
+  --dimension 2 \
+  --material snow \
+  --box-min 0.4,0.4 \
+  --box-max 0.6,0.6 \
+  --points-per-axis 16,16 \
+  --gravity 0,-9.81 \
+  --cells 64 \
+  --duration 0.01 \
+  --max-dt 0.0001 \
+  --output tmp/snow-2d.nmpm
 ```
 
-The solver does not overwrite generated datasets, so remove or move the existing output before generating another dataset.
+For 3D, provide three components for bounds, sampling counts, and gravity:
 
-## Embedding the Simulation
+```bash
+./build/nuclear_mpm_solver \
+  --dimension 3 \
+  --material solid \
+  --box-min 0.4,0.4,0.4 \
+  --box-max 0.6,0.6,0.6 \
+  --points-per-axis 8,8,8 \
+  --gravity 0,-9.81,0 \
+  --cells 64 \
+  --duration 0.001
+```
 
-Include `src/nclr.h` in a C++17 target and link Eigen. The simulation headers do not depend on GLFW, GLAD, or OpenGL; those dependencies are isolated to `src/visualizer.cpp` and the example targets.
+## Embedding NuclearMPM
 
-The material point method can be sensitive to grid indexing, particularly with the snow model. Start from `src/example.cpp`, verify that a simulation converges, and then move larger data-generation workloads to `nuclear_mpm_solver`.
+From the build tree, link `NuclearMPM::NuclearMPM`. The installed package has a public dependency on Eigen 3.4; install Eigen separately and ensure both package prefixes are discoverable through `CMAKE_PREFIX_PATH` (or `Eigen3_DIR`). Installed consumers can then use:
+
+```cmake
+find_package(NuclearMPM CONFIG REQUIRED)
+target_link_libraries(my_simulation PRIVATE NuclearMPM::NuclearMPM)
+```
+
+Example:
+
+```cpp
+#include <nuclear_mpm/nuclear_mpm.hpp>
+
+int main() {
+    nuclear_mpm::SimulationConfig<2> config;
+    config.cells_per_axis = 64;
+    config.materials.add(nuclear_mpm::Snow<2>(400.0F, 0.2F));
+
+    nuclear_mpm::RuntimeControls<2> controls;
+    controls.gravity << 0.0F, -9.81F;
+
+    auto particles = nuclear_mpm::sample_box_lattice<2>(
+        nuclear_mpm::Index<2>{8, 8},
+        nuclear_mpm::Vector<2>{0.4F, 0.4F},
+        nuclear_mpm::Vector<2>{0.6F, 0.6F},
+        1.0F,
+        0,
+        0xED553BU);
+
+    nuclear_mpm::Simulation<2> simulation(config, controls, std::move(particles));
+    const auto diagnostics = simulation.advance(1.0e-3F);
+    return diagnostics.substep_count > 0 ? 0 : 1;
+}
+```
+
+## Numerical Model
+
+The core uses quadratic B-spline stencils and one dimension-generic `3^Dim` transfer path. Complete stencil support is validated before grid access. Fixed-corotated stress uses the Kirchhoff tensor
+
+```text
+τ = 2 μ (F - R) Fᵀ + λ (J - 1) J I
+```
+
+with an actual scaled identity for the volumetric term. Liquids use an isotropic bulk response with zero shear modulus. Particle velocity is never clipped to hide instability; `Simulation::advance` chooses substeps from transport speed, material wave speed, grid spacing, and the configured CFL factor.
+
+## Installation
+
+```bash
+cmake -S . -B build-install -GNinja \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DNUCLEAR_MPM_BUILD_TESTS=OFF \
+  -DNUCLEAR_MPM_BUILD_WORKBENCH=OFF
+cmake --build build-install
+cmake --install build-install --prefix /desired/prefix --component NuclearMPM
+```
+
+This installs only the core headers and CMake package metadata. Visualization dependencies remain outside the core package.

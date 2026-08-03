@@ -10,10 +10,14 @@ option(NUCLEAR_MPM_BUILD_TESTS "Build NuclearMPM tests" ON)
 option(NUCLEAR_MPM_BUILD_WORKBENCH "Build the OpenGL workbench" ON)
 option(NUCLEAR_MPM_ENABLE_OPENMP "Enable the bounded OpenMP backend" OFF)
 option(NUCLEAR_MPM_ENABLE_SANITIZERS "Enable supported sanitizers" OFF)
-option(WITH_NCLR_SOLVER_VIZ "Build legacy solver playback support" OFF)
 
 include(FetchContent)
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+include(cmake/NuclearMPMWarnings.cmake)
+include(cmake/NuclearMPMSanitizers.cmake)
 
+set(BUILD_TESTING OFF)
 set(EIGEN_BUILD_DOC OFF CACHE BOOL "" FORCE)
 set(EIGEN_BUILD_PKGCONFIG OFF CACHE BOOL "" FORCE)
 set(EIGEN_BUILD_TESTING OFF CACHE BOOL "" FORCE)
@@ -32,15 +36,18 @@ target_include_directories(
   nuclear_mpm
   INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 target_link_libraries(nuclear_mpm INTERFACE Eigen3::Eigen)
+set_target_properties(nuclear_mpm PROPERTIES EXPORT_NAME NuclearMPM)
 
+set(NUCLEAR_MPM_PACKAGE_NEEDS_OPENMP OFF)
 if(NUCLEAR_MPM_ENABLE_OPENMP)
   find_package(OpenMP)
   if(OpenMP_CXX_FOUND)
     target_link_libraries(nuclear_mpm INTERFACE OpenMP::OpenMP_CXX)
     target_compile_definitions(nuclear_mpm INTERFACE NUCLEAR_MPM_HAS_OPENMP=1)
+    set(NUCLEAR_MPM_PACKAGE_NEEDS_OPENMP ON)
   else()
     message(WARNING "NUCLEAR_MPM_ENABLE_OPENMP is ON, but OpenMP was not found; using serial execution")
   endif()
@@ -51,19 +58,27 @@ add_subdirectory(flags)
 add_library(nuclear_mpm_cli src/solver_cli.cpp src/snapshot_io.cpp)
 target_include_directories(nuclear_mpm_cli PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(nuclear_mpm_cli PUBLIC NuclearMPM::NuclearMPM PRIVATE flags::flags)
+nuclear_mpm_enable_warnings(nuclear_mpm_cli)
+nuclear_mpm_enable_sanitizers(nuclear_mpm_cli)
 
 add_executable(nuclear_mpm_solver src/solver.cpp)
 target_link_libraries(nuclear_mpm_solver PRIVATE nuclear_mpm_cli)
+nuclear_mpm_enable_warnings(nuclear_mpm_solver)
+nuclear_mpm_enable_sanitizers(nuclear_mpm_solver)
 
 add_library(nuclear_mpm_camera src/camera.cpp)
 target_include_directories(nuclear_mpm_camera PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(nuclear_mpm_camera PUBLIC NuclearMPM::NuclearMPM)
+nuclear_mpm_enable_warnings(nuclear_mpm_camera)
+nuclear_mpm_enable_sanitizers(nuclear_mpm_camera)
 
 add_library(nuclear_mpm_session src/simulation_session.cpp)
 target_include_directories(nuclear_mpm_session PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(nuclear_mpm_session PUBLIC NuclearMPM::NuclearMPM nuclear_mpm_camera)
+nuclear_mpm_enable_warnings(nuclear_mpm_session)
+nuclear_mpm_enable_sanitizers(nuclear_mpm_session)
 
-if(NUCLEAR_MPM_BUILD_WORKBENCH OR WITH_NCLR_SOLVER_VIZ)
+if(NUCLEAR_MPM_BUILD_WORKBENCH)
   set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
   set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
   set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
@@ -83,45 +98,79 @@ if(NUCLEAR_MPM_BUILD_WORKBENCH OR WITH_NCLR_SOLVER_VIZ)
   add_library(nuclear_mpm_visualizer src/visualizer.cpp)
   target_include_directories(nuclear_mpm_visualizer PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
   target_link_libraries(nuclear_mpm_visualizer PRIVATE nuclear_mpm_camera glfw glad_gl_core_41 OpenGL::GL)
+  nuclear_mpm_enable_warnings(nuclear_mpm_visualizer)
+  nuclear_mpm_enable_sanitizers(nuclear_mpm_visualizer)
 
-  if(NUCLEAR_MPM_BUILD_WORKBENCH)
-    FetchContent_Declare(
-      imgui
-      GIT_REPOSITORY https://github.com/ocornut/imgui.git
-      GIT_TAG v1.91.8
-      GIT_SHALLOW TRUE
-    )
-    FetchContent_MakeAvailable(imgui)
+  FetchContent_Declare(
+    imgui
+    GIT_REPOSITORY https://github.com/ocornut/imgui.git
+    GIT_TAG v1.91.8
+    GIT_SHALLOW TRUE
+  )
+  FetchContent_MakeAvailable(imgui)
 
-    add_library(
-      nuclear_mpm_imgui
-      ${imgui_SOURCE_DIR}/imgui.cpp
-      ${imgui_SOURCE_DIR}/imgui_draw.cpp
-      ${imgui_SOURCE_DIR}/imgui_tables.cpp
-      ${imgui_SOURCE_DIR}/imgui_widgets.cpp
-      ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
-      ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
-    )
-    target_include_directories(nuclear_mpm_imgui PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends)
-    target_link_libraries(nuclear_mpm_imgui PUBLIC glfw OpenGL::GL)
+  add_library(
+    nuclear_mpm_imgui
+    ${imgui_SOURCE_DIR}/imgui.cpp
+    ${imgui_SOURCE_DIR}/imgui_draw.cpp
+    ${imgui_SOURCE_DIR}/imgui_tables.cpp
+    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
+  )
+  target_include_directories(nuclear_mpm_imgui PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends)
+  target_link_libraries(nuclear_mpm_imgui PUBLIC glfw OpenGL::GL)
 
-    add_library(nuclear_mpm_workbench src/simulation_workbench.cpp)
-    target_include_directories(nuclear_mpm_workbench PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
-    target_link_libraries(
-      nuclear_mpm_workbench
-      PUBLIC nuclear_mpm_session nuclear_mpm_visualizer
-      PRIVATE nuclear_mpm_imgui
-    )
+  add_library(nuclear_mpm_workbench src/simulation_workbench.cpp)
+  target_include_directories(nuclear_mpm_workbench PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+  target_link_libraries(
+    nuclear_mpm_workbench
+    PUBLIC nuclear_mpm_session nuclear_mpm_visualizer
+    PRIVATE nuclear_mpm_imgui
+  )
+  nuclear_mpm_enable_warnings(nuclear_mpm_workbench)
+  nuclear_mpm_enable_sanitizers(nuclear_mpm_workbench)
 
-    add_executable(nuclear_mpm_example src/example.cpp)
-    target_link_libraries(nuclear_mpm_example PRIVATE nuclear_mpm_workbench)
-  endif()
-
-  if(WITH_NCLR_SOLVER_VIZ)
-    target_compile_definitions(nuclear_mpm_solver PRIVATE NCLR_SOLVER_VIZ)
-    target_link_libraries(nuclear_mpm_solver PRIVATE nuclear_mpm_visualizer)
-  endif()
+  add_executable(nuclear_mpm_example src/example.cpp)
+  target_link_libraries(nuclear_mpm_example PRIVATE nuclear_mpm_workbench)
+  nuclear_mpm_enable_warnings(nuclear_mpm_example)
+  nuclear_mpm_enable_sanitizers(nuclear_mpm_example)
 endif()
+
+install(
+  TARGETS nuclear_mpm
+  EXPORT NuclearMPMTargets
+  COMPONENT NuclearMPM
+)
+install(
+  DIRECTORY include/nuclear_mpm
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+  COMPONENT NuclearMPM
+)
+configure_package_config_file(
+  cmake/NuclearMPMConfig.cmake.in
+  ${CMAKE_CURRENT_BINARY_DIR}/NuclearMPMConfig.cmake
+  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/NuclearMPM
+)
+write_basic_package_version_file(
+  ${CMAKE_CURRENT_BINARY_DIR}/NuclearMPMConfigVersion.cmake
+  VERSION ${PROJECT_VERSION}
+  COMPATIBILITY SameMajorVersion
+)
+install(
+  EXPORT NuclearMPMTargets
+  FILE NuclearMPMTargets.cmake
+  NAMESPACE NuclearMPM::
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/NuclearMPM
+  COMPONENT NuclearMPM
+)
+install(
+  FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/NuclearMPMConfig.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/NuclearMPMConfigVersion.cmake
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/NuclearMPM
+  COMPONENT NuclearMPM
+)
 
 if(NUCLEAR_MPM_BUILD_TESTS)
   enable_testing()
@@ -153,4 +202,18 @@ if(NUCLEAR_MPM_BUILD_TESTS)
   )
   set_tests_properties(solver_2d_one_step solver_3d_one_step
     PROPERTIES PASS_REGULAR_EXPRESSION "Simulation complete")
+
+  add_test(
+    NAME package_consumer
+    COMMAND ${CMAKE_COMMAND}
+      -DNUCLEAR_MPM_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
+      -DNUCLEAR_MPM_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/RunPackageConsumerTest.cmake
+  )
+  add_test(
+    NAME legacy_headers
+    COMMAND ${CMAKE_COMMAND}
+      -DNUCLEAR_MPM_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckLegacyHeaders.cmake
+  )
 endif()
