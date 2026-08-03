@@ -4,6 +4,7 @@ add_executable(
   math_test.cpp
   grid_test.cpp
   stencil_test.cpp
+  particle_sampling_test.cpp
 )
 target_link_libraries(nuclear_mpm_tests PRIVATE NuclearMPM::NuclearMPM Catch2::Catch2WithMain)
 
