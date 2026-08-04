@@ -24,7 +24,7 @@ struct SessionBlueprint {
         gravity(1) = -9.81F;
     }
 
-    int cells_per_axis = 8;
+    int cells_per_axis = 64;
     Scalar max_time_step = 1.0e-4F;
     Scalar cfl_factor = 0.4F;
     Scalar density = 1.0F;

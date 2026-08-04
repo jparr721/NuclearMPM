@@ -4,6 +4,30 @@
 
 using Catch::Approx;
 
+TEST_CASE("default sessions start paused on a 64-cell grid", "[session]") {
+    nuclear_mpm::viz::SimulationSessionController sessions;
+
+    REQUIRE(sessions.active_paused());
+    REQUIRE(sessions.simulation_2d().config().cells_per_axis == 64);
+    REQUIRE(sessions.simulation_3d().config().cells_per_axis == 64);
+}
+
+TEST_CASE("unpaused default scene sustains free fall before boundary contact", "[session]") {
+    nuclear_mpm::viz::SimulationSessionController sessions;
+    sessions.set_active_paused(false);
+
+    for (int frame = 0; frame < 50; ++frame) { sessions.advance_active(1.0e-3F); }
+
+    float mean_vertical_velocity = 0.0F;
+    for (const auto &particle : sessions.simulation_2d().particles()) {
+        mean_vertical_velocity += particle.velocity(1);
+    }
+    mean_vertical_velocity /= static_cast<float>(sessions.simulation_2d().particles().size());
+
+    REQUIRE(sessions.simulation_2d().simulation_time() == Approx(0.05F).margin(1.0e-5F));
+    REQUIRE(mean_vertical_velocity == Approx(-0.4905F).margin(1.0e-3F));
+}
+
 TEST_CASE("switching dimensions preserves both simulation sessions", "[session]") {
     nuclear_mpm::viz::SimulationSessionController sessions;
     sessions.set_active_paused(false);
