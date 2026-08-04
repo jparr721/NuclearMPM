@@ -8,6 +8,8 @@ TEST_CASE("default sessions start paused on a 64-cell grid", "[session]") {
     nuclear_mpm::viz::SimulationSessionController sessions;
 
     REQUIRE(sessions.active_paused());
+    sessions.switch_dimension(nuclear_mpm::RuntimeDimension::Three);
+    REQUIRE(sessions.active_paused());
     REQUIRE(sessions.simulation_2d().config().cells_per_axis == 64);
     REQUIRE(sessions.simulation_3d().config().cells_per_axis == 64);
 }
