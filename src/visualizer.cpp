@@ -1,5 +1,7 @@
 #include "visualizer.h"
 
+#include "overlay_geometry.h"
+
 #include <glad/gl.h>
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
@@ -58,6 +60,16 @@ struct Vertex {
             static_cast<float>((color >> 8U) & 0xFFU) * channel_scale,
             static_cast<float>(color & 0xFFU) * channel_scale,
     };
+}
+
+[[nodiscard]] auto line_vertices(const std::vector<RenderLine> &lines) -> std::vector<Vertex> {
+    std::vector<Vertex> vertices;
+    vertices.reserve(lines.size() * 2);
+    for (const auto &line : lines) {
+        vertices.push_back(to_vertex(line.start.x(), line.start.y(), line.start.z(), line.color));
+        vertices.push_back(to_vertex(line.end.x(), line.end.y(), line.end.z(), line.color));
+    }
+    return vertices;
 }
 
 [[nodiscard]] auto compile_shader(GLenum type, const char *source) -> GLuint {
@@ -268,6 +280,17 @@ struct Visualizer::Impl {
         glLineWidth(2.0F);
         glDrawArrays(scene.dimension == RuntimeDimension::Two ? GL_LINE_LOOP : GL_LINES, 0,
                      static_cast<GLsizei>(boundary.size()));
+
+        auto overlay_lines = build_grid_lines(scene);
+        const auto boundary_guides = build_boundary_guide_lines(scene);
+        overlay_lines.insert(overlay_lines.end(), boundary_guides.begin(), boundary_guides.end());
+        const auto overlay = line_vertices(overlay_lines);
+        if (!overlay.empty()) {
+            glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(overlay.size() * sizeof(Vertex)), overlay.data(),
+                         GL_DYNAMIC_DRAW);
+            glLineWidth(1.0F);
+            glDrawArrays(GL_LINES, 0, static_cast<GLsizei>(overlay.size()));
+        }
 
         std::vector<Vertex> vertices;
         vertices.reserve(scene.points.size());

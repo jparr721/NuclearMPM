@@ -72,6 +72,12 @@ target_link_libraries(nuclear_mpm_camera PUBLIC NuclearMPM::NuclearMPM)
 nuclear_mpm_enable_warnings(nuclear_mpm_camera)
 nuclear_mpm_enable_sanitizers(nuclear_mpm_camera)
 
+add_library(nuclear_mpm_overlay src/overlay_geometry.cpp)
+target_include_directories(nuclear_mpm_overlay PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(nuclear_mpm_overlay PUBLIC nuclear_mpm_camera)
+nuclear_mpm_enable_warnings(nuclear_mpm_overlay)
+nuclear_mpm_enable_sanitizers(nuclear_mpm_overlay)
+
 add_library(nuclear_mpm_session src/simulation_session.cpp)
 target_include_directories(nuclear_mpm_session PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(nuclear_mpm_session PUBLIC NuclearMPM::NuclearMPM nuclear_mpm_camera)
@@ -97,7 +103,7 @@ if(NUCLEAR_MPM_BUILD_WORKBENCH)
 
   add_library(nuclear_mpm_visualizer src/visualizer.cpp)
   target_include_directories(nuclear_mpm_visualizer PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
-  target_link_libraries(nuclear_mpm_visualizer PRIVATE nuclear_mpm_camera glfw glad_gl_core_41 OpenGL::GL)
+  target_link_libraries(nuclear_mpm_visualizer PRIVATE nuclear_mpm_camera nuclear_mpm_overlay glfw glad_gl_core_41 OpenGL::GL)
   nuclear_mpm_enable_warnings(nuclear_mpm_visualizer)
   nuclear_mpm_enable_sanitizers(nuclear_mpm_visualizer)
 

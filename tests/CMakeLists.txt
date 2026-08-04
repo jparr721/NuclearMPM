@@ -14,11 +14,12 @@ add_executable(
   snapshot_io_test.cpp
   camera_test.cpp
   simulation_session_test.cpp
+  overlay_geometry_test.cpp
 )
 target_link_libraries(
   nuclear_mpm_tests
   PRIVATE NuclearMPM::NuclearMPM nuclear_mpm_cli nuclear_mpm_camera nuclear_mpm_session
-          Catch2::Catch2WithMain
+          nuclear_mpm_overlay Catch2::Catch2WithMain
 )
 nuclear_mpm_enable_warnings(nuclear_mpm_tests)
 nuclear_mpm_enable_sanitizers(nuclear_mpm_tests)
