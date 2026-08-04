@@ -88,6 +88,27 @@ TEST_CASE("live gravity updates only the active session", "[session]") {
     REQUIRE(sessions.simulation_3d().runtime_controls().gravity == nuclear_mpm::Vector<3>{1.0F, -2.0F, 3.0F});
 }
 
+TEST_CASE("render overlay describes the active simulation rather than staged settings", "[session]") {
+    nuclear_mpm::viz::SimulationSessionController sessions;
+    const auto initial = sessions.active_render_scene();
+
+    REQUIRE(initial.grid_overlay.cells_per_axis == 64);
+    REQUIRE(initial.grid_overlay.boundary_layers == 3);
+    REQUIRE(initial.grid_overlay.outflow_deletion_layers == 2);
+    REQUIRE(initial.grid_overlay.lower[0] == nuclear_mpm::BoundaryMode::Slip);
+
+    sessions.staged_2d().cells_per_axis = 32;
+    sessions.staged_2d().boundaries.lower[0] = nuclear_mpm::BoundaryMode::Sticky;
+    const auto staged_only = sessions.active_render_scene();
+    REQUIRE(staged_only.grid_overlay.cells_per_axis == 64);
+    REQUIRE(staged_only.grid_overlay.lower[0] == nuclear_mpm::BoundaryMode::Slip);
+
+    sessions.reset_active();
+    const auto reset = sessions.active_render_scene();
+    REQUIRE(reset.grid_overlay.cells_per_axis == 32);
+    REQUIRE(reset.grid_overlay.lower[0] == nuclear_mpm::BoundaryMode::Sticky);
+}
+
 TEST_CASE("render scenes use flat 2D and native 3D positions", "[session]") {
     nuclear_mpm::viz::SimulationSessionController sessions;
     const auto scene_2d = sessions.active_render_scene();

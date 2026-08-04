@@ -33,6 +33,18 @@ auto add_material(MaterialTable<Dim> &materials, MaterialPreset preset) -> void 
     }
 }
 
+template<int Dim>
+auto populate_grid_overlay(RenderGridOverlay &overlay, const Simulation<Dim> &simulation) -> void {
+    const auto &config = simulation.config();
+    overlay.cells_per_axis = config.cells_per_axis;
+    overlay.boundary_layers = config.boundaries.boundary_layers;
+    overlay.outflow_deletion_layers = config.boundaries.outflow_deletion_layers;
+    for (int axis = 0; axis < Dim; ++axis) {
+        overlay.lower[static_cast<std::size_t>(axis)] = config.boundaries.lower[axis];
+        overlay.upper[static_cast<std::size_t>(axis)] = config.boundaries.upper[axis];
+    }
+}
+
 } // namespace
 
 template<int Dim>
@@ -133,11 +145,13 @@ auto SimulationSessionController::active_render_scene() const -> RenderScene {
     RenderScene scene;
     scene.dimension = active_dimension_;
     if (active_dimension_ == RuntimeDimension::Two) {
+        populate_grid_overlay(scene.grid_overlay, *simulation_2d_);
         scene.points.reserve(simulation_2d_->particles().size());
         for (const auto &particle : simulation_2d_->particles()) {
             scene.points.push_back({particle.position(0), particle.position(1), 0.0F, particle.user_tag});
         }
     } else {
+        populate_grid_overlay(scene.grid_overlay, *simulation_3d_);
         scene.points.reserve(simulation_3d_->particles().size());
         for (const auto &particle : simulation_3d_->particles()) {
             scene.points.push_back(

@@ -2,10 +2,12 @@
 
 #include "camera.h"
 
+#include <nuclear_mpm/boundary.hpp>
 #include <nuclear_mpm/types.hpp>
 
 #include <Eigen/Core>
 
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -22,8 +24,21 @@ struct RenderPoint {
     std::uint32_t color;
 };
 
+struct RenderGridOverlay {
+    int cells_per_axis = 0;
+    int boundary_layers = 0;
+    int outflow_deletion_layers = 0;
+    std::array<BoundaryMode, 3> lower{
+            BoundaryMode::Slip, BoundaryMode::Slip, BoundaryMode::Slip};
+    std::array<BoundaryMode, 3> upper{
+            BoundaryMode::Slip, BoundaryMode::Slip, BoundaryMode::Slip};
+    bool show_grid = true;
+    bool show_boundaries = true;
+};
+
 struct RenderScene {
     std::vector<RenderPoint> points;
+    RenderGridOverlay grid_overlay;
     RuntimeDimension dimension = RuntimeDimension::Two;
     Eigen::Vector3f domain_min = Eigen::Vector3f::Zero();
     Eigen::Vector3f domain_max = Eigen::Vector3f::Ones();

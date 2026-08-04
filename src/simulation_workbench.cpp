@@ -149,6 +149,12 @@ auto SimulationWorkbench::draw_boundary_settings() -> void {
     }
 }
 
+auto SimulationWorkbench::draw_visualization_settings() -> void {
+    ImGui::Checkbox("Show grid", &show_grid_);
+    ImGui::Checkbox("Show boundary guides", &show_boundaries_);
+    ImGui::TextUnformatted("Grid: blue\nSlip: teal\nSticky: red\nOutflow: amber");
+}
+
 auto SimulationWorkbench::draw_diagnostics() -> void {
     if (sessions_.active_dimension() == RuntimeDimension::Two) {
         draw_diagnostics_values(sessions_.simulation_2d(), sessions_.diagnostics_2d());
@@ -182,6 +188,9 @@ auto SimulationWorkbench::draw_controls() -> void {
 
     if (ImGui::CollapsingHeader("Scene", ImGuiTreeNodeFlags_DefaultOpen)) { draw_scene_settings(); }
     if (ImGui::CollapsingHeader("Boundaries")) { draw_boundary_settings(); }
+    if (ImGui::CollapsingHeader("Visualization", ImGuiTreeNodeFlags_DefaultOpen)) {
+        draw_visualization_settings();
+    }
     if (ImGui::CollapsingHeader("Diagnostics", ImGuiTreeNodeFlags_DefaultOpen)) { draw_diagnostics(); }
     if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
         if (sessions_.active_dimension() == RuntimeDimension::Two) {
@@ -213,7 +222,9 @@ auto SimulationWorkbench::run() -> void {
             perform_safely([&] { sessions_.advance_active(simulation_seconds_per_frame_); });
         }
 
-        const auto scene = sessions_.active_render_scene();
+        auto scene = sessions_.active_render_scene();
+        scene.grid_overlay.show_grid = show_grid_;
+        scene.grid_overlay.show_boundaries = show_boundaries_;
         const auto view_projection = sessions_.active_view_projection(visualizer_.framebuffer_aspect_ratio());
         visualizer_.draw_scene(scene, view_projection);
 
